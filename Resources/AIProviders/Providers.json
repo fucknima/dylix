@@ -198,6 +198,24 @@
       "modelsURL": "https://api.x.ai/v1/models"
     },
     {
+      "id": "opencode-go",
+      "name": "OpenCode Go",
+      "baseURL": "https://opencode.ai/inference/go/openai/v1",
+      "description": "OpenCode Go 订阅服务；同一对话自动携带稳定的 x-opencode-session（需自己的 Go API Key）",
+      "wireProtocol": "chat",
+      "auth": [
+        "apiKey"
+      ],
+      "capabilities": {
+        "text": "unknown",
+        "stream": "unknown",
+        "image": "unknown",
+        "tools": "unknown",
+        "thinking": "unknown"
+      },
+      "modelsURL": "https://opencode.ai/inference/go/v1/models"
+    },
+    {
       "id": "custom",
       "name": "自定义 OpenAI 兼容服务",
       "baseURL": "",

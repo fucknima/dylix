@@ -50,6 +50,8 @@ NSURL *TFAIEndpoint(NSDictionary *c,BOOL models,NSError **error){
  NSString *original=c[@"protocol"]?:@"chat",*protocol=WireProtocol(original);if(!p.length)p=[original isEqual:@"gemini"]?@"/v1beta":[original isEqual:@"deepseek"]?@"":@"/v1";
  if(![@[@"chat",@"responses",@"anthropic",@"gemini"] containsObject:protocol]){if(error)*error=TFAIError(2,@"未知模型协议");return nil;}
  if([protocol isEqual:@"gemini"]){if(models)u.path=[p stringByAppendingString:@"/models"];else{NSString *model=[c[@"model"] isKindOfClass:NSString.class]?c[@"model"]:@"";if([model hasPrefix:@"models/"])model=[model substringFromIndex:7];if(!model.length)model=@"__select_model__";NSCharacterSet *allowed=[NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."];if([model rangeOfCharacterFromSet:allowed.invertedSet].location!=NSNotFound){if(error)*error=TFAIError(3,@"Gemini 模型 ID 含有无效路径字符");return nil;}u.path=[NSString stringWithFormat:@"%@/models/%@:generateContent",p,model];}return u.URL;}
+ // OpenCode Go publishes its model catalog at a separate, official HTTPS path.
+ if(models&&[original isEqual:@"opencode-go"]&&[u.host.lowercaseString isEqualToString:@"opencode.ai"]){u.path=@"/inference/go/v1/models";return u.URL;}
  u.path=[p stringByAppendingString:models?@"/models":[protocol isEqual:@"responses"]?@"/responses":[protocol isEqual:@"anthropic"]?@"/messages":@"/chat/completions"];return u.URL;
 }
 static NSString *Str(id value){return [value isKindOfClass:NSString.class]?value:@"";}

@@ -198,7 +198,10 @@ if([context[@"binaryIDs"] count])[schemas addObjectsFromArray:TFAIBinarySchemas(
  if(!projected){[self fail:contextError.localizedDescription?:@"上下文投影失败，完整会话已保留。"];return;}
  if(self.currentFlexCaptureID.length)[self emit:@{@"type":@"flex_capture_status",@"captureID":self.currentFlexCaptureID,@"stage":@"sending",@"requestID":self.responseMessageID}];
  self.usageRequestID=self.responseMessageID;[[TFAIUsageStore shared] begin:self.usageRequestID project:self.projectID session:self.sessionID connection:self.connection wire:TFAIWireProtocol(self.connection[@"protocol"])];
- [self.transport send:projected connection:self.connection tools:schemas event:^(NSDictionary *event){
+ // OpenCode Go: preserve the same UUID across tool calls and follow-up rounds.
+ NSDictionary *transportConnection=self.connection;
+ if([self.connection[@"protocol"] isEqualToString:@"opencode-go"]){NSMutableDictionary *goConnection=[self.connection mutableCopy];goConnection[@"goSessionID"]=self.sessionID?:@"";transportConnection=goConnection;}
+ [self.transport send:projected connection:transportConnection tools:schemas event:^(NSDictionary *event){
   TFProjectAIRuntime *s=weak;if(!s.running||token!=s.generation)return;
   NSString *type=event[@"type"];
   if([type isEqual:@"request_body_sent"]){if(s.currentFlexCaptureID.length&&!s.flexUploadConfirmed){s.flexUploadConfirmed=YES;[s emit:@{@"type":@"flex_capture_status",@"captureID":s.currentFlexCaptureID,@"stage":@"sent",@"requestID":s.responseMessageID}];}}

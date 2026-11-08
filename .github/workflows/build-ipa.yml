@@ -1,0 +1,92 @@
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dylix-go-ipa-release
+  cancel-in-progress: false
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 240
+    env:
+      DYLIX_SDK_26_0: ${{ github.workspace }}/LocalSDKs/iPhoneOS26.0.sdk
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Select newest installed Xcode
+        run: |
+          set -euo pipefail
+          newest="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)"
+          test -n "$newest"
+          sudo xcode-select -s "$newest/Contents/Developer"
+          xcodebuild -version
+      - name: Check build prerequisites
+        run: |
+          set -euo pipefail
+          xcode-select -p
+          xcrun --find clang
+          xcrun --sdk iphoneos --show-sdk-path
+          python3 --version
+          command -v cmake
+          command -v cargo
+          rustc --version
+          test -f "$DYLIX_SDK_26_0/SDKSettings.plist"
+          test -d LocalSDKs/iPhoneOS26.0.sdk/System/Library/Frameworks
+      - name: Verify OpenCode Go integration
+        run: python3 scripts/test_opencode_go_patch.py
+      - name: Prepare Rust target
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+      - name: Cache Cargo downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ runner.os }}-${{ hashFiles('Vendor/REipa/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: Download pinned SDK-free toolchain
+        run: python3 scripts/fetch_toolchain.py
+      - name: Build ad-hoc-signed device IPA
+        run: python3 scripts/build.py --sdk-root LocalSDKs/iPhoneOS26.0.sdk --identity -
+      - name: Validate and rename IPA
+        run: |
+          set -euo pipefail
+          IPA="$(find build -maxdepth 1 -type f -name 'Dylix-*-unsigned.ipa' -print -quit)"
+          test -n "$IPA" && test -s "$IPA"
+          unzip -tq "$IPA"
+          unzip -Z1 "$IPA" | grep -q '^Payload/[^/]\+\.app/Info.plist$'
+          mkdir -p dist
+          cp "$IPA" dist/Dylix-Go-unsigned.ipa
+          shasum -a 256 dist/Dylix-Go-unsigned.ipa > dist/SHA256.txt
+          cat dist/SHA256.txt
+          du -h dist/Dylix-Go-unsigned.ipa
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dylix-Go-unsigned-${{ github.run_number }}
+          path: |
+            dist/Dylix-Go-unsigned.ipa
+            dist/SHA256.txt
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish latest pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="go-build-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$TAG" dist/Dylix-Go-unsigned.ipa dist/SHA256.txt \
+            --target "$GITHUB_SHA" \
+            --title "Dylix Go · Build ${GITHUB_RUN_NUMBER}" \
+            --notes "自动编译的未签名 IPA，需自行签名安装。Git SHA: ${GITHUB_SHA}" \
+            --latest

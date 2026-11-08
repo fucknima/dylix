@@ -132,3 +132,14 @@ Dylix 原创代码与修改采用 **GNU General Public License v3.0 or later（G
 第三方代码保留原许可证，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。感谢 LLVM / Clang / LLD、ios_system、Perl、Theos Logos、libgit2、REipa、Monaco Editor、MBProgressHUD、highlight.js、diff2html 等项目。第三方许可不因本项目采用 GPL 而被替换。
 
 欢迎通过 [贡献说明](CONTRIBUTING.md) 一起改进 Dylix。
+
+
+## OpenCode Go（独立 Fork 增强）
+
+进入「AI 模型与连接」→「添加服务商」→「OpenCode Go」，填入从 OpenCode Console 获取的 Go API Key；默认模型为 `glm-5.3-flash`，也可获取实时模型列表重新选择。
+
+正式对话、工具续轮均携带稳定的 `x-opencode-session`（使用本地会话 UUID）；模型发现和能力测试使用临时 UUID。默认 `User-Agent` 为 `Dylix-Go/1.0`。API Key 仍按原版机制保存在 iOS 钥匙串。
+
+官方接口：`https://opencode.ai/inference/go/openai/v1/chat/completions`；模型列表：`https://opencode.ai/inference/go/v1/models`。OpenCode Go 主要服务于代码 Agent 场景，模型和能力按服务商当前政策、订阅权限和实际测试结果决定。
+
+本 Fork 在 `.github/workflows/` 增加构建及上游同步：同步成功时自动触发新的无个人证书 IPA 编译；存在合并冲突时停止而非强制覆盖。构建生成的 `Dylix-Go-unsigned.ipa` 是需后续自行签名的安装包，不是已用个人开发者证书签署的包。

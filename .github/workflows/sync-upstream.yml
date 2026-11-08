@@ -1,0 +1,53 @@
+name: Sync upstream and rebuild
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: dylix-go-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Merge upstream safely
+        id: merge
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add upstream https://github.com/yangokok886/dylix.git
+          git fetch --no-tags upstream main
+          git checkout main
+          if git merge-base --is-ancestor FETCH_HEAD HEAD; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo '本仓库已包含上游最新提交。'
+            exit 0
+          fi
+          # Real merge preserves both upstream history and OpenCode Go custom changes.
+          # Never use -X theirs, reset --hard or force push.
+          if ! git merge --no-edit --no-ff FETCH_HEAD; then
+            git status --short
+            git merge --abort || true
+            echo '上游合并冲突：未推送，保持主分支不变，请人工解决。' >&2
+            exit 1
+          fi
+          git push origin HEAD:main
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+      - name: Trigger a fresh IPA build after token-authored merge
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-ipa.yml --ref main
