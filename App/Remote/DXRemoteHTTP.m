@@ -2,6 +2,7 @@
 #import <unistd.h>
 #import <sys/stat.h>
 #import "DXRemoteHTTP.h"
+#import "DXRemoteNetwork.h"
 #import <Network/Network.h>
 #import <arpa/inet.h>
 
@@ -28,7 +29,7 @@ NSDictionary *DXRemoteParseRequest(NSData *bytes,BOOL *complete,NSInteger *failu
  if(![headers[@"host"] length]||headers[@"transfer-encoding"]||headers[@"upgrade"]||headers[@"expect"]){*failure=400;return nil;}
  NSString *length=headers[@"content-length"];NSUInteger count=0;
  if(length){if(!length.length||length.length>8||[length rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet.invertedSet].location!=NSNotFound){*failure=400;return nil;}count=length.integerValue;}
- NSUInteger maxBody=[start[1] isEqual:@"/api/v1/workspace"]?2*1024*1024:([start[1] isEqual:@"/api/v1/flex/reply"]?256*1024:([start[0] isEqual:@"PUT"]?8*1024*1024:8192));
+ NSUInteger maxBody=[start[1] isEqual:@"/api/v1/workspace"]?2*1024*1024:([start[1] isEqual:@"/api/v1/flex/reply"]?4*1024*1024:([start[0] isEqual:@"PUT"]?8*1024*1024:8192));
  if(count>maxBody){*failure=413;return nil;}
  if(![@[@"POST",@"PUT",@"PROPFIND",@"LOCK"] containsObject:start[0]]&&count){*failure=400;return nil;}
  if(bytes.length<headerEnd+count)return nil;
@@ -71,8 +72,7 @@ NSDictionary *DXRemoteParseRequest(NSData *bytes,BOOL *complete,NSInteger *failu
  });
  nw_listener_set_new_connection_handler(listener,^(nw_connection_t connection){
   DXRemoteHTTP *s=weak;if(!s||generation!=s.generation){nw_connection_cancel(connection);return;}
-  nw_endpoint_t endpoint=nw_connection_copy_endpoint(connection);const char *host=nw_endpoint_get_hostname(endpoint);struct in_addr addr;BOOL local=NO;
-  if(host&&inet_pton(AF_INET,host,&addr)==1){uint32_t v=ntohl(addr.s_addr);local=(v>>24)==10||(v>>20)==0xac1||(v>>16)==0xc0a8||(v>>16)==0xa9fe||(v>>24)==127;}
+  nw_endpoint_t endpoint=nw_connection_copy_endpoint(connection);const char *host=nw_endpoint_get_hostname(endpoint);BOOL local=host&&DXRemotePeerAllowed([NSString stringWithUTF8String:host],address);
   if(!local||s.peers.count>=16){nw_connection_cancel(connection);return;}
   DXRemotePeer *p=[DXRemotePeer new];p.connection=connection;p.bytes=[NSMutableData new];[s.peers addObject:p];nw_connection_set_queue(connection,s.queue);
   nw_connection_set_state_changed_handler(connection,^(nw_connection_state_t st,nw_error_t err){if(st==nw_connection_state_failed||st==nw_connection_state_cancelled)[weak close:p];});

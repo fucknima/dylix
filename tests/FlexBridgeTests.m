@@ -33,6 +33,16 @@ int main(void) { @autoreleasepool {
  Check([reply[@"ok"] boolValue]&&!failure,@"completion returns exactly the device result");
  Check(![bridge reply:@{@"id":command[@"id"],@"result":@{}} device:device error:nil],@"completed command cannot replay");
  reply=nil;
+ [bridge enqueueForSession:session operation:@"sandbox_read" arguments:@{@"path":@"Documents/log.txt",@"tail":@YES,@"limit":@524288} completion:^(NSDictionary *result,NSError *error){reply=result;failure=error;}];
+ command=nil;for(NSUInteger i=0;i<100&&!command[@"id"];i++){command=[bridge nextForDevice:device];if(!command[@"id"])[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];}
+ NSString *largeText=[@"\n" stringByPaddingToLength:524288 withString:@"\n" startingAtIndex:0];
+ Check(![bridge reply:@{@"id":command[@"id"],@"result":@{@"text":largeText}} device:other error:nil],@"large log replies still reject forged devices");
+ NSString *tooLarge=[@"A" stringByPaddingToLength:4*1024*1024 withString:@"A" startingAtIndex:0];
+ Check(![bridge reply:@{@"id":command[@"id"],@"result":@{@"text":tooLarge}} device:device error:nil],@"encoded log reply retains bounded transport limit");
+ Check([bridge reply:@{@"id":command[@"id"],@"result":@{@"text":largeText}} device:device error:nil],@"512 KiB log with JSON escaping passes bridge");
+ for(NSUInteger i=0;i<100&&!reply;i++)[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];
+ Check([reply[@"text"] isEqual:largeText]&&!failure,@"large log arrives intact in bound session");
+ reply=nil;
  [bridge enqueueForSession:session operation:@"capture_screen" arguments:@{} completion:^(NSDictionary *result,NSError *error){reply=result;failure=error;}];
  command=nil;for(NSUInteger i=0;i<100&&!command[@"id"];i++){command=[bridge nextForDevice:device];if(!command[@"id"])[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:.01]];}
  Check([command[@"operation"] isEqual:@"capture_screen"],@"paired agent can receive screenshot request");

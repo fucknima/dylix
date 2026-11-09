@@ -46,6 +46,26 @@ jobs:
         run: python3 scripts/test_opencode_go_patch.py
       - name: Prepare Rust target
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
+      - name: Prepare iSH build tools
+        run: |
+          set -euo pipefail
+          command -v meson >/dev/null || brew install meson
+          command -v ninja >/dev/null || brew install ninja
+          meson --version
+          ninja --version
+          LLD="$(command -v ld.lld || true)"
+          if [ -z "$LLD" ]; then
+            for candidate in /opt/homebrew/opt/llvm/bin/ld.lld /usr/local/opt/llvm/bin/ld.lld; do
+              if [ -x "$candidate" ]; then LLD="$candidate"; break; fi
+            done
+          fi
+          if [ -z "$LLD" ]; then
+            brew install llvm
+            LLD="$(brew --prefix llvm)/bin/ld.lld"
+          fi
+          test -x "$LLD"
+          "$LLD" --version | head -1
+          echo "DYLIX_LLD=$LLD" >> "$GITHUB_ENV"
       - name: Cache Cargo downloads
         uses: actions/cache@v4
         with:
@@ -79,7 +99,7 @@ jobs:
             dist/SHA256.txt
           retention-days: 30
           if-no-files-found: error
-      - name: Publish latest pre-release
+      - name: Publish latest release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

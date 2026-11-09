@@ -14,3 +14,8 @@
 .DS_Store
 __pycache__/
 *.pyc
+# FLEX/Theos local build state (source and bundled release files are retained)
+/Plugins/FLEX/.theos/
+/Plugins/FLEX/packages/
+/Plugins/FLEX/*.deb
+/Plugins/FLEX/*.dylib

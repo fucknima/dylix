@@ -53,9 +53,10 @@ static NSError *DXFlexError(NSString *message) { return [NSError errorWithDomain
  NSString *identifier=input[@"id"]; id result=input[@"result"],message=input[@"error"];
  if (![identifier isKindOfClass:NSString.class] || (!result && !message) || (result && ![result isKindOfClass:NSDictionary.class]) || (message && (![message isKindOfClass:NSString.class] || [message length]>1000))) { if (error) *error=DXFlexError(@"FLEX 返回格式无效"); return NO; }
  NSData *encoded=[NSJSONSerialization dataWithJSONObject:input options:0 error:nil];
- if (!encoded || encoded.length>256*1024) { if (error) *error=DXFlexError(@"FLEX 返回超过 256 KB"); return NO; }
+ if (!encoded || encoded.length>4*1024*1024) { if (error) *error=DXFlexError(@"FLEX 返回超过 4 MiB"); return NO; }
  __block BOOL accepted=NO; dispatch_sync(self.queue, ^{
   NSMutableDictionary *entry=self.commands[identifier]; if (![entry[@"device"] isEqual:device]) return;
+  if(![entry[@"operation"] isEqual:@"sandbox_read"]&&encoded.length>256*1024)return;
   accepted=YES; [self complete:entry result:result error:message?DXFlexError(message):nil];
  });
  if (!accepted && error) *error=DXFlexError(@"命令已过期或不属于当前设备");

@@ -16,7 +16,7 @@
  return 1+([TFAIToolRegistry enabled:@"remote"]||[TFAIToolRegistry enabled:@"isolation"]?1:0);
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
- if(section==0)return 5;
+ if(section==0)return 6;
  return [TFAIToolRegistry enabled:@"remote"]+[TFAIToolRegistry enabled:@"isolation"];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -37,10 +37,10 @@
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
  if(indexPath.section==0){
-  NSArray *modules=@[@"skills",@"memory",@"browser",@"mcp",@"build_queue"];
-  NSArray *titles=@[@"技能",@"记忆",@"浏览器",@"MCP 服务",@"构建任务"];
-  NSArray *details=@[@"按需读取项目技能",@"按需读取本机记忆",@"让 AI 阅读当前公开网页",@"已授权的只读查询工具",@"查看构建队列和进度"];
-  NSArray *icons=@[@"text.book.closed",@"brain",@"globe",@"network",@"hammer"];
+  NSArray *modules=@[@"skills",@"memory",@"browser",@"mcp",@"build_queue",@"sandbox"];
+  NSArray *titles=@[@"技能",@"记忆",@"浏览器",@"MCP 服务",@"构建任务",@"Linux 沙盒"];
+  NSArray *details=@[@"按需读取项目技能",@"按需读取本机记忆",@"让 AI 阅读当前公开网页",@"已授权的只读查询工具",@"查看构建队列和进度",@"会话内执行 Linux 命令，逐次确认"];
+  NSArray *icons=@[@"text.book.closed",@"brain",@"globe",@"network",@"hammer",@"terminal"];
   NSInteger row=indexPath.row;
   return [self cell:modules[row] title:titles[row] detail:details[row] icon:icons[row]];
  }

@@ -40,11 +40,7 @@ static NSString *DXFileDigest(NSString *path,NSError **error){
  int fd=open(path.fileSystemRepresentation,O_RDONLY|O_NOFOLLOW);if(fd<0){if(errno==ENOENT)return @"missing";if(error)*error=[NSError errorWithDomain:NSPOSIXErrorDomain code:errno userInfo:nil];return nil;}
  CC_SHA256_CTX hash;CC_SHA256_Init(&hash);unsigned char buffer[64*1024];ssize_t n;while((n=read(fd,buffer,sizeof(buffer)))>0)CC_SHA256_Update(&hash,buffer,(CC_LONG)n);int failure=errno;close(fd);if(n<0){if(error)*error=[NSError errorWithDomain:NSPOSIXErrorDomain code:failure userInfo:nil];return nil;}unsigned char digest[CC_SHA256_DIGEST_LENGTH];CC_SHA256_Final(digest,&hash);NSMutableString *value=[NSMutableString new];for(NSUInteger i=0;i<sizeof(digest);i++)[value appendFormat:@"%02x",digest[i]];return value;
 }
-static id Clean(id value){
- if([value isKindOfClass:NSString.class])return TFAIContainsSecret(value)?@"[已隐藏疑似凭据]":value;
- if([value isKindOfClass:NSArray.class]){NSMutableArray *a=[NSMutableArray new];for(id x in value)[a addObject:Clean(x)];return a;}
- if([value isKindOfClass:NSDictionary.class]){NSMutableDictionary *d=[NSMutableDictionary new];for(NSString *k in value)if(![@[@"root",@"projectRoot",@"secret",@"token",@"apiKey",@"baseURL",@"authorization",@"cookie"] containsObject:k])d[k]=Clean(value[k]);return d;}return value?:NSNull.null;
-}
+#import "DXRemoteSanitize.h"
 @interface DXRemoteWorkspace ()
 @property dispatch_queue_t queue;
 @property NSMutableDictionary *jobs,*owners,*toolboxes,*runtimes,*decisions,*downloads,*uploads;
@@ -225,7 +221,11 @@ static id Clean(id value){
 - (void)mutate:(NSMutableDictionary *)job action:(NSString *)action arguments:(NSDictionary *)args root:(NSString *)root{
  dispatch_async(TMCGitService.queue,^{@autoreleasepool{
   NSError *error=nil;id result=@{};
-  if(job[@"autosaveGrant"]){__block BOOL allowed=NO;dispatch_sync(self.queue,^{NSString *key=[NSString stringWithFormat:@"%@/%@",job[@"device"],job[@"projectID"]];allowed=[job[@"state"] isEqual:@"running"]&&[self.owners[key][@"remoteAutosaveGrant"] isEqual:job[@"autosaveGrant"]];});if(!allowed)error=DXError(@"自动保存授权已结束，草稿尚未写入");}
+  // Approval can be revoked while this work waits on the Git queue. Recheck
+  // every mutation, not only automatic saves, immediately before acquiring the lease.
+  __block BOOL active=NO,allowed=NO;dispatch_sync(self.queue,^{NSString *key=[NSString stringWithFormat:@"%@/%@",job[@"device"],job[@"projectID"]];active=self.jobs[job[@"id"]]==job&&[job[@"state"] isEqual:@"running"];allowed=active&&(!job[@"autosaveGrant"]||[self.owners[key][@"remoteAutosaveGrant"] isEqual:job[@"autosaveGrant"]]);});
+  if(!active)return;
+  if(!allowed)error=DXError(@"自动保存授权已结束，草稿尚未写入");
   TMCGitLease *lease __attribute__((objc_precise_lifetime))=[TMCGitLease tryWrite];
   if(!lease||[TMCGitLease isBuilding:root])error=DXError(@"项目正被构建或 Git 使用，请稍后重试");
   NSString *path=error?nil:TFAISafePath(root,args[@"path"]?:@"MobileCompiler.json",NO,&error);

@@ -1,5 +1,6 @@
 #import "TFAIAttachmentStore.h"
 #import "../Binary/TFAIBinary.h"
+#import "../Permissions/TFAIPolicy.h"
 static NSError *DError(NSString *s){return [NSError errorWithDomain:@"TweakForge.AI.Directory" code:1 userInfo:@{NSLocalizedDescriptionKey:s}];}
 // Decode Apple property lists locally; model receives only the requested XML lines.
 static NSString *DirectoryText(NSData *data,NSString *path,NSError **error){
@@ -28,3 +29,27 @@ for(;cursor<names.count;cursor++){if(cursor-offset>=100)break;NSString *rel=rela
 return @{@"id":arguments[@"id"]?:entry[@"id"]?:@"",@"path":relative,@"action":action,@"items":items,@"total_entries":@(names.count),@"scanned_entries":@(cursor-MIN(offset,names.count)),@"next_offset":cursor<names.count?@(cursor):NSNull.null,@"access":@"readOnly",@"live":@YES,@"note":[action isEqual:@"search"]?@"每次搜索当前层文件名及文本内容，最多扫描100项；正文单文件最多1MB、总计4MB。无匹配不代表整目录无结果，请用 next_offset 继续。子目录需继续搜索，大文件请按行读取。":@"仅目录清单，不含正文。"};} @finally{if(scoped)[url stopAccessingSecurityScopedResource];}}
 
 NSURL *TFAIDirectoryBrowserURL(NSDictionary *entry,NSError **error){if(!TFAIReadDirectoryReference(entry,@{@"action":@"validate"},error))return nil;return OpenGrant(entry,error);}
+
+void TFAIStageSandboxAttachment(NSDictionary *reference,NSString *relativePath,void (^completion)(NSURL *,NSError *)){
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{@autoreleasepool{
+  NSError *error=nil;NSURL *file=nil,*grant=nil;BOOL scope=NO;
+  if(reference[@"directoryGrant"]){
+   if(![relativePath isKindOfClass:NSString.class]||!relativePath.length){error=DError(@"目录附件需要指定已列出的单文件相对路径");}
+   else{grant=TFAIDirectoryBrowserURL(reference,&error);if(grant){scope=[grant startAccessingSecurityScopedResource];NSString *path=Inside(grant.path,relativePath,&error);if(path)file=[NSURL fileURLWithPath:path];}}
+  }else if(reference[@"localSnapshot"]){NSString *path=TFAIAttachmentLocalPath(reference[@"localSnapshot"],&error);if(path){NSData *data=[NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:&error];if(data&&[TFAIDigest(data) isEqual:reference[@"localSnapshot"][@"sha256"]])file=[NSURL fileURLWithPath:path];else if(!error)error=DError(@"附件副本已经变化，请重新导入");}}
+  NSString *stage=[NSTemporaryDirectory() stringByAppendingPathComponent:[@"dylix-ish-import-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  NSURL *copied=nil;
+  if(file){
+   NSFileCoordinator *coordinator=[[NSFileCoordinator alloc]initWithFilePresenter:nil];__block NSError *failure=nil;__block NSURL *result=nil;
+   [coordinator coordinateReadingItemAtURL:file options:0 error:&error byAccessor:^(NSURL *actual){
+    NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:actual.path error:&failure];
+    if(![attrs[NSFileType] isEqual:NSFileTypeRegular]||[attrs[NSFileSize] unsignedLongLongValue]>1024ULL*1024*1024){failure=DError(@"只能复制普通文件，单文件不超过 1 GiB；目录和符号链接不会跟随");return;}
+    if(![NSFileManager.defaultManager createDirectoryAtPath:stage withIntermediateDirectories:NO attributes:@{NSFilePosixPermissions:@0700} error:&failure])return;
+    NSString *destination=[stage stringByAppendingPathComponent:actual.lastPathComponent];if([NSFileManager.defaultManager copyItemAtPath:actual.path toPath:destination error:&failure])result=[NSURL fileURLWithPath:destination];
+   }];copied=result;if(failure)error=failure;
+  }
+  if(grant&&scope)[grant stopAccessingSecurityScopedResource];
+  if(!copied){[NSFileManager.defaultManager removeItemAtPath:stage error:nil];if(!error)error=DError(@"附件没有可供复制的单文件副本，请在终端页面导入文件");}
+  dispatch_async(dispatch_get_main_queue(),^{completion(copied,error);});
+ }});
+}

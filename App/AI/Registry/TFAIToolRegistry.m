@@ -19,12 +19,18 @@ static NSDictionary *Declarations(void){
   add(@[@"list_builds",@"read_diagnostics",@"list_artifacts"],@"read",@"current_project_builds",@"A",@"none",NO,@"core",@"projectBridge");
   add(@[@"clean_builds",@"cancel_build"],@"write",@"current_project_builds",@"A",@"existing",NO,@"core",@"projectBridge");
   add(@[@"build_project"],@"write",@"current_project_build",@"A",@"existing",NO,@"core",@"compiler");
-  add(@[@"binary_inspect"],@"read",@"selected_staged_binary",@"A",@"none",NO,@"core",@"binary");
+  add(@[@"binary_inspect",@"binary_obfuscation_scan"],@"read",@"selected_staged_binary",@"A",@"none",NO,@"core",@"binary");
   add(@[@"classdump_export"],@"read",@"selected_staged_ipa_derived_output",@"A",@"none",NO,@"core",@"ipa");
   add(@[@"classdump_headers"],@"read",@"selected_local_headers",@"A",@"none",NO,@"core",@"headers");
   add(@[@"web_read",@"web_search",@"github_query"],@"read",@"public_web",@"A",@"none",NO,@"core",@"web");
+  add(@[@"sandbox_install_tools",@"sandbox_process_start",@"sandbox_process_write",@"sandbox_process_resize",@"sandbox_process_stop"],@"write",@"session_linux_process",@"A",@"every_call",NO,@"sandbox",@"sandbox");
+  add(@[@"sandbox_process_read",@"sandbox_process_list",@"sandbox_files"],@"read",@"session_linux_process",@"A",@"none",NO,@"sandbox",@"sandbox");
+  add(@[@"sandbox_preview"],@"read",@"session_owned_loopback_http",@"A",@"none",YES,@"sandbox",@"sandbox");
+  add(@[@"sandbox_reverse"],@"mixed",@"selected_binary_in_session_linux",@"A",@"existing",NO,@"sandbox",@"sandbox");
+  add(@[@"sandbox_browser"],@"mixed",@"session_owned_loopback_http",@"A",@"existing",YES,@"sandbox",@"sandbox");
+  add(@[@"sandbox_execute",@"sandbox_import_attachment",@"sandbox_export_file"],@"write",@"session_linux_sandbox",@"A",@"every_call",NO,@"sandbox",@"sandbox");
   add(@[@"agent_skill_read"],@"read",@"project_or_bundled_skill_text",@"A",@"none",NO,@"skills",@"skills");
-  add(@[@"web_browse"],@"read",@"ephemeral_public_web",@"A",@"none",YES,@"browser",@"browser");
+  add(@[@"web_browse"],@"mixed",@"ephemeral_public_web",@"A",@"existing",YES,@"browser",@"browser");
   add(@[@"agent_memory_read"],@"read",@"project_or_local_MEMORY.md",@"A",@"none",NO,@"memory",@"always");
   add(@[@"agent_build_tasks"],@"read",@"current_project_tasks",@"A",@"none",NO,@"build_queue",@"projectBridge");
   add(@[@"read_attachment"],@"read",@"selected_attachment_or_live_directory_grant",@"B",@"none",NO,@"core",@"attachment");
@@ -51,6 +57,7 @@ static BOOL Available(NSDictionary *entry,NSDictionary *c){
  if([entry[@"requiresForeground"] boolValue]&&![c[@"foreground"] boolValue])return NO;
  NSString *check=entry[@"availability"];
  if([check isEqual:@"always"]||[check isEqual:@"actions"])return YES;
+ if([check isEqual:@"sandbox"])return [c[@"sandboxAvailable"] boolValue]&&[c[@"hasSession"] boolValue]&&[c[@"hasApproval"] boolValue]&&![c[@"readOnly"] boolValue]&&(![entry[@"name"] isEqual:@"sandbox_import_attachment"]||[c[@"attachmentIDs"] count]>0)&&(![entry[@"name"] isEqual:@"sandbox_reverse"]||[c[@"binaryIDs"] count]>0);
  if([check isEqual:@"session"])return [c[@"hasSession"] boolValue];
  if([check isEqual:@"bridge"])return [c[@"hasBridge"] boolValue];
  if([check isEqual:@"project"])return [c[@"hasProject"] boolValue];
@@ -119,17 +126,18 @@ static BOOL PreflightError(NSError **error,NSInteger code,NSString *name,NSStrin
  if(error)*error=[NSError errorWithDomain:@"Dylix.ToolRegistry" code:code userInfo:@{NSLocalizedDescriptionKey:message,@"TFAIToolRecovery":recovery.copy}];return NO;
 }
 @implementation TFAIToolRegistry
-+ (NSArray *)modules{return @[@"skills",@"mcp",@"browser",@"memory",@"build_queue",@"remote",@"isolation"];}
++ (NSArray *)modules{return @[@"skills",@"mcp",@"browser",@"memory",@"build_queue",@"sandbox",@"remote",@"isolation"];}
 + (BOOL)enabled:(NSString *)module{if([module isEqual:@"core"])return YES;if(![self.modules containsObject:module])return NO;id value=[NSUserDefaults.standardUserDefaults objectForKey:[@"Dylix.Tools.v1." stringByAppendingString:module]];return value?[value boolValue]:![@[@"isolation",@"remote"] containsObject:module];}
 + (void)setEnabled:(BOOL)enabled module:(NSString *)module{if(![self.modules containsObject:module])return;[NSUserDefaults.standardUserDefaults setBool:enabled forKey:[@"Dylix.Tools.v1." stringByAppendingString:module]];[NSNotificationCenter.defaultCenter postNotificationName:@"DylixToolRegistryChanged" object:module];}
 + (NSDictionary *)descriptor:(NSString *)name{return Declarations()[name];}
 + (NSArray *)entries:(NSArray *)schemas context:(NSDictionary *)context{
  NSMutableArray *out=[NSMutableArray new];NSMutableSet *seen=[NSMutableSet new];
  for(id raw in schemas){if(![raw isKindOfClass:NSDictionary.class]||![raw[@"name"] isKindOfClass:NSString.class])continue;NSString *name=raw[@"name"];if([seen containsObject:name])continue;[seen addObject:name];NSMutableDictionary *entry=[Declarations()[name] mutableCopy];
-  if(!entry&&[name hasPrefix:@"mcp_"]&&[context[@"mcpNames"] containsObject:name])entry=[@{@"name":name,@"effect":@"read",@"scope":@"user_allowed_HTTP_MCP_query",@"tier":@"A",@"permissionTier":@"A",@"approvalPolicy":@"none",@"requiresUserApproval":@NO,@"requiresForeground":@NO,@"module":@"mcp",@"availability":@"mcp"} mutableCopy];
+  if(!entry&&[name hasPrefix:@"mcp_"]&&[context[@"mcpNames"] containsObject:name])entry=[@{@"name":name,@"effect":@"read",@"scope":@"user_allowed_MCP_query",@"tier":@"A",@"permissionTier":@"A",@"approvalPolicy":@"none",@"requiresUserApproval":@NO,@"requiresForeground":@NO,@"module":@"mcp",@"availability":@"mcp"} mutableCopy];
+  if([name hasPrefix:@"mcp_"]&&[context[@"mcpConfirmNames"] containsObject:name]){entry[@"effect"]=@"control";entry[@"scope"]=@"user_enabled_MCP_service";entry[@"approvalPolicy"]=@"confirmation";entry[@"requiresUserApproval"]=@YES;if([context[@"readOnly"] boolValue]||![context[@"hasApproval"] boolValue])continue;}
   if(!Available(entry,context))continue;
   NSMutableDictionary *wire=[raw mutableCopy],*parameters=[raw[@"parameters"] mutableCopy];NSMutableDictionary *props=[parameters[@"properties"] mutableCopy];
-  NSDictionary *ids=@{@"read_attachment":@[@"id",@"attachmentIDs"],@"binary_inspect":@[@"binary_id",@"binaryIDs"],@"classdump_export":@[@"input_id",@"ipaIDs"],@"classdump_headers":@[@"job_id",@"headerIDs"],@"agent_skill_read":@[@"id",@"skillIDs"],@"target_app_metadata":@[@"target_id",@"targetAppIDs"],@"own_plugin_logs":@[@"target_id",@"pluginLogIDs"]};
+  NSDictionary *ids=@{@"sandbox_import_attachment":@[@"id",@"attachmentIDs"],@"read_attachment":@[@"id",@"attachmentIDs"],@"binary_inspect":@[@"binary_id",@"binaryIDs"],@"binary_obfuscation_scan":@[@"binary_id",@"binaryIDs"],@"sandbox_reverse":@[@"binary_id",@"binaryIDs"],@"classdump_export":@[@"input_id",@"ipaIDs"],@"classdump_headers":@[@"job_id",@"headerIDs"],@"agent_skill_read":@[@"id",@"skillIDs"],@"target_app_metadata":@[@"target_id",@"targetAppIDs"],@"own_plugin_logs":@[@"target_id",@"pluginLogIDs"]};
   if(ids[name]){NSArray *pair=ids[name];NSMutableDictionary *field=[props[pair[0]] mutableCopy]?:[NSMutableDictionary new];field[@"enum"]=context[pair[1]]?:@[];props[pair[0]]=field;}
   if([name isEqual:@"app_action"]){NSMutableDictionary *action=[props[@"action"] mutableCopy];NSMutableArray *names=[NSMutableArray new];for(NSString *value in action[@"enum"])if(ActionAvailable(value,context))[names addObject:value];if(!names.count)continue;action[@"enum"]=names;props[@"action"]=action;}
   if(props){parameters[@"properties"]=props;wire[@"parameters"]=parameters;}entry[@"description"]=[wire[@"description"] isKindOfClass:NSString.class]?wire[@"description"]:@"";entry[@"schema"]=wire.copy;[out addObject:entry.copy];

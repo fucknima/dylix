@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import "TFAISessionResources.h"
+#import "../Sandbox/TFAIISHExports.h"
 #import "../Attachments/TFAIAttachmentStore.h"
 #import "../Attachments/TFAIAttachmentNames.h"
 #import "../ClassDump/TFAIClassDumpExecution.h"
@@ -18,6 +19,7 @@ NSMutableArray *items=[NSMutableArray new];NSMutableSet *seen=[NSMutableSet new]
  NSString *input=SFText(entry[@"classDumpInputID"]);if([[NSUUID alloc]initWithUUIDString:input])add(SFLocal([docs stringByAppendingPathComponent:[NSString stringWithFormat:@"AIClassDumpInputs/%@/input.ipa",input]],name));}
  NSUInteger index=0;for(NSDictionary *image in message[@"images"]){index++;add(@{@"name":[NSString stringWithFormat:@"图片 %lu",(unsigned long)index],@"category":@"图片",@"previewItem":@{@"kind":@"image",@"data":image[@"data"]?:@""}});}}
  for(NSDictionary *record in snapshot[@"processRecords"]){if(![record[@"status"] isEqual:@"completed"])continue;origin=SFText(record[@"assistantMessageID"]?:record[@"messageID"]);source=@"生成";fallbackTime=[record[@"startedAt"] isKindOfClass:NSNumber.class]?record[@"startedAt"]:@0;NSDictionary *result=[record[@"result"] isKindOfClass:NSDictionary.class]?record[@"result"]:@{},*args=[record[@"arguments"] isKindOfClass:NSDictionary.class]?record[@"arguments"]:@{};NSString *name=SFText(record[@"name"]),*job=SFText(result[@"jobID"]);if([[NSUUID alloc]initWithUUIDString:job]){source=@"头文件";add(SFLocal([docs stringByAppendingPathComponent:[@"ClassDump-" stringByAppendingString:job]],@"导出的头文件"));add(SFLocal(TFAIClassDumpExportURL(job).path,SFText(result[@"name"]).length?[SFText(result[@"name"]) stringByAppendingString:@" · 头文件.zip"]:@"头文件.zip"));}
+ if([name isEqual:@"sandbox_export_file"]){NSURL *url=TFAIISHExportURL(result,SFText(snapshot[@"id"]));if(url){source=@"Linux 导出";add(SFLocal(url.path,result[@"name"]));source=@"生成";}}
  NSString *build=SFBuildPath(docs,result[@"buildID"]);if(build){source=@"构建";add(SFLocal(build,[NSString stringWithFormat:@"构建结果 · %@",[build.lastPathComponent substringToIndex:MIN(14,build.lastPathComponent.length)]]));for(id artifact in result[@"artifacts"]){if(![artifact isKindOfClass:NSDictionary.class])continue;NSString *file=SFText(artifact[@"name"]);if([@[@"deb",@"dylib"] containsObject:file.pathExtension])add(SFLocal(SFPath(build,file),file));}source=@"生成";}
  if([record[@"status"] isEqual:@"completed"]&&SFInside(docs,project)){
  if([@[@"create_file",@"download_file",@"extract_archive"] containsObject:name]){NSString *relative=[name isEqual:@"extract_archive"]?(result[@"directory"]?:args[@"destination"]):(result[@"path"]?:args[@"path"]);add(SFLocal(SFPath(project,SFText(relative)),nil));}

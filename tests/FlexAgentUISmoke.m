@@ -284,6 +284,22 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  chat.routingFixture=NO;
  [chat setValue:@YES forKey:@"busy"];[chat setValue:@"job-fixture" forKey:@"jobID"];
  NSTimer *timer=[chat valueForKey:@"agentTimer"];FLEXDylixRuntime *runtime=[chat valueForKey:@"runtime"];
+ NSString *logPath=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/flex-large-log.txt"];
+ NSMutableString *log=[NSMutableString new];for(NSUInteger i=0;i<80000;i++)[log appendString:@"中文日志 abc\n"];[log appendString:@"LATEST-END"];
+ NSData *logData=[log dataUsingEncoding:NSUTF8StringEncoding];[logData writeToFile:logPath atomically:YES];
+ NSDictionary *(^ReadLog)(NSDictionary *)=^NSDictionary *(NSDictionary *args){NSMutableDictionary *a=[args mutableCopy];a[@"path"]=@"Documents/flex-large-log.txt";return [runtime execute:@"sandbox_read" arguments:a error:nil];};
+ NSDictionary *page=ReadLog(@{});Check([page[@"totalBytes"] unsignedLongLongValue]==logData.length&&[page[@"bytesRead"] unsignedIntegerValue]>65536&&[page[@"has_more"] boolValue],@"large log reads 128 KiB by default instead of rejecting entire file");
+ NSMutableData *reassembled=[NSMutableData new];unsigned long long cursor=0;BOOL pagesOK=YES;
+ do{page=ReadLog(@{@"offset":@(cursor),@"limit":@131073});NSData *chunk=[page[@"text"] dataUsingEncoding:NSUTF8StringEncoding];if(!page||!chunk||[page[@"next_offset"] unsignedLongLongValue]<=cursor){pagesOK=NO;break;}[reassembled appendData:chunk];cursor=[page[@"next_offset"] unsignedLongLongValue];}while([page[@"has_more"] boolValue]);
+ Check(pagesOK&&[reassembled isEqual:logData],@"UTF-8 byte pagination reconstructs a multi-megabyte log without loss or duplication");
+ page=ReadLog(@{@"tail":@YES,@"limit":@524288});Check([page[@"text"] hasSuffix:@"LATEST-END"]&&![page[@"has_more"] boolValue]&&[page[@"bytesRead"] unsignedIntegerValue]<=524288,@"512 KiB tail reads latest log directly across UTF-8 boundary");
+ Check(ReadLog(@{@"limit":@524289})==nil&&ReadLog(@{@"offset":@(-1)})==nil&&ReadLog(@{@"tail":@YES,@"offset":@0})==nil,@"invalid ranges and conflicting tail cursor are rejected");
+ Check(ReadLog(@{@"offset":@(logData.length+1)})==nil,@"stale offset beyond rotated file fails explicitly");
+ page=ReadLog(@{@"offset":@(logData.length)});Check([page[@"text"] isEqual:@""]&&![page[@"has_more"] boolValue],@"EOF is an explicit empty successful page");
+ [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];page=ReadLog(@{});Check([page[@"text"] isEqual:@""]&&[page[@"totalBytes"] unsignedIntegerValue]==0,@"empty UTF-8 log remains readable");
+ Check([runtime execute:@"sandbox_read" arguments:@{@"path":@"../outside.txt"} error:nil]==nil,@"large-file support preserves sandbox boundary");
+ [NSFileManager.defaultManager removeItemAtPath:logPath error:nil];
+
  HookEvidenceFixtureButton *evidenceButton=[HookEvidenceFixtureButton buttonWithType:UIButtonTypeSystem];evidenceButton.frame=CGRectMake(20,40,100,30);[evidenceButton setTitle:@"Evidence fixture" forState:UIControlStateNormal];evidenceButton.accessibilityIdentifier=@"stable-fixture-button";[HostWindow.rootViewController.view addSubview:evidenceButton];
  [runtime setValue:evidenceButton forKey:@"selectedObject"];NSDictionary *evidence=[runtime execute:@"object_info" arguments:@{} error:nil][@"hookEvidence"];
  Check([evidence[@"signature"][@"class"] isEqual:@"HookEvidenceFixtureButton"]&&[evidence[@"signature"][@"accessibilityID"] isEqual:@"stable-fixture-button"],@"object_info exposes stable locator candidate without using runtime address");

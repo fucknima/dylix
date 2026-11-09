@@ -39,7 +39,27 @@ NSString *TFAIReasoningRequestSummary(NSDictionary *body,NSDictionary *c){
  return [NSString stringWithFormat:@"%@；实际发送：%@",TFAIThinkingConfiguration(c)[@"source"],json];
 }
 NSDictionary *TFAISanitizeProbeDiagnostics(NSDictionary *input,NSString *secret){if(![input isKindOfClass:NSDictionary.class])return @{};NSMutableDictionary *out=[NSMutableDictionary new];NSSet *numbers=[NSSet setWithArray:@[@"timestamp",@"duration",@"httpStatus"]];for(NSString *key in @[@"protocol",@"model",@"endpoint",@"httpStatus",@"requestSummary",@"responseText",@"responseBody",@"timestamp",@"duration",@"expected",@"reason",@"testImage",@"reasoningSummary"]){id value=input[key];if([numbers containsObject:key]){if([value isKindOfClass:NSNumber.class]&&isfinite([value doubleValue]))out[key]=value;continue;}if(![value isKindOfClass:NSString.class])continue;NSString *text=value;if([key isEqual:@"testImage"]){NSData *data=[[NSData alloc]initWithBase64EncodedString:text options:0];if(data.length<=128*1024&&data.length>8&&memcmp(data.bytes,"\x89PNG\r\n\x1a\n",8)==0)out[key]=text;continue;}if([key isEqual:@"endpoint"]){NSURLComponents *u=[NSURLComponents componentsWithString:text];if(!u.host.length)continue;u.user=nil;u.password=nil;u.query=nil;u.fragment=nil;text=u.URL.absoluteString?:@"";}if(secret.length)text=[text stringByReplacingOccurrencesOfString:secret withString:@"[REDACTED]"];for(NSString *pattern in @[@"(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+",@"(?i)(api[_-]?key|authorization|access[_-]?token|token|secret)([\\\"' :=]+)[A-Za-z0-9._~+/-]{6,}",@"(?i)(sk-|github_pat_|AIza)[A-Za-z0-9_-]{12,}"]){NSRegularExpression *rx=[NSRegularExpression regularExpressionWithPattern:pattern options:0 error:nil];text=[rx stringByReplacingMatchesInString:text options:0 range:NSMakeRange(0,text.length) withTemplate:@"[REDACTED]"];}NSUInteger max=[key isEqual:@"responseBody"]?16000:8000;out[key]=[text substringToIndex:MIN(text.length,max)];}return out;}
-static BOOL LocalHost(NSString *host){NSString *h=host.lowercaseString;if([h isEqual:@"localhost"]||[h hasSuffix:@".local"]||[h isEqual:@"::1"]||[h isEqual:@"[::1]"])return YES;struct in_addr a;if(inet_pton(AF_INET,h.UTF8String,&a)==1){uint32_t v=ntohl(a.s_addr);return (v>>24)==10||(v>>24)==127||(v>>16)==0xc0a8||(v>>20)==0xac1||(v>>16)==0xa9fe;}return NO;}
+static BOOL LocalHost(NSString *host){
+ NSString *h=host.lowercaseString;if([h hasPrefix:@"["]&&[h hasSuffix:@"]"])h=[h substringWithRange:NSMakeRange(1,h.length-2)];
+ if([h isEqual:@"localhost"]||[h hasSuffix:@".local"])return YES;
+ struct in_addr a;if(inet_pton(AF_INET,h.UTF8String,&a)==1){uint32_t v=ntohl(a.s_addr);return (v>>24)==10||(v>>24)==127||(v>>16)==0xc0a8||(v>>20)==0xac1||(v>>16)==0xa9fe;}
+ // Literal IPv6 loopback, unique-local, link-local and IPv4-mapped addresses.
+ struct in6_addr v6;if(inet_pton(AF_INET6,h.UTF8String,&v6)==1){if(IN6_IS_ADDR_LOOPBACK(&v6)||(v6.s6_addr[0]&0xfe)==0xfc||(v6.s6_addr[0]==0xfe&&(v6.s6_addr[1]&0xc0)==0x80))return YES;if(IN6_IS_ADDR_V4MAPPED(&v6)){char ip[INET_ADDRSTRLEN];inet_ntop(AF_INET,v6.s6_addr+12,ip,sizeof(ip));return LocalHost([NSString stringWithUTF8String:ip]);}}
+ return NO;
+}
+NSDictionary *TFAIValidatedCustomHeaders(id raw,NSError **error){
+ if(!raw)return @{};
+ if(![raw isKindOfClass:NSDictionary.class]||[raw count]>32){if(error)*error=TFAIError(5,@"请求头必须是 JSON 对象，最多 32 项。");return nil;}
+ NSCharacterSet *names=[[NSCharacterSet characterSetWithCharactersInString:@"!#$%&'*+-.^_`|~0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"] invertedSet];
+ NSSet *reserved=[NSSet setWithArray:@[@"host",@"content-length",@"transfer-encoding",@"connection",@"proxy-connection",@"proxy-authorization",@"trailer",@"te",@"upgrade",@"accept-encoding",@"content-type",@"accept",@"user-agent"]];
+ NSMutableDictionary *out=[NSMutableDictionary new];NSMutableSet *seen=[NSMutableSet new];NSUInteger total=0;
+ for(id name in raw){id value=raw[name];if(![name isKindOfClass:NSString.class]||![name length]||[name length]>128||[name rangeOfCharacterFromSet:names].location!=NSNotFound||![value isKindOfClass:NSString.class]){if(error)*error=TFAIError(5,@"请求头名称须为合法 HTTP 字段名，值须为单行字符串。");return nil;}
+ NSString *lower=[name lowercaseString];if([reserved containsObject:lower]||[seen containsObject:lower]){if(error)*error=TFAIError(5,@"不能重复请求头或覆盖传输字段；User-Agent 请使用专用设置。");return nil;}
+ for(NSUInteger i=0;i<[value length];i++){unichar ch=[value characterAtIndex:i];if(ch<32||ch>126){if(error)*error=TFAIError(5,@"请求头值只接受可打印 ASCII，不能含换行或控制字符。");return nil;}}
+ total+=[name length]+[value length];if([value length]>4096||total>16384){if(error)*error=TFAIError(5,@"单个请求头值最多 4096 字符，总大小最多 16 KiB。");return nil;}[seen addObject:lower];out[name]=value;
+ }
+ return out;
+}
 NSString *TFAIUserAgent(NSDictionary *c,NSError **error){id raw=c[@"userAgent"];if(!raw)return @"";if(![raw isKindOfClass:NSString.class]||[raw length]>512){if(error)*error=TFAIError(4,@"User-Agent 请填写 512 字符以内的单行英文文本。");return nil;}for(NSUInteger i=0;i<[raw length];i++){unichar ch=[raw characterAtIndex:i];if(ch<32||ch>126){if(error)*error=TFAIError(4,@"User-Agent 仅接受可打印 ASCII 字符，请去掉换行和特殊字符。");return nil;}}return [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];}
 NSURL *TFAIEndpoint(NSDictionary *c,BOOL models,NSError **error){
  NSString *raw=[c[@"baseURL"] isKindOfClass:NSString.class]?c[@"baseURL"]:@"";NSURLComponents *u=[NSURLComponents componentsWithString:[raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];

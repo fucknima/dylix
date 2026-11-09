@@ -18,6 +18,7 @@ typedef void (^TFAIResult)(NSDictionary * _Nullable result, NSError * _Nullable 
 + (BOOL)save:(NSDictionary *)connection secret:(nullable NSString *)secret error:(NSError **)error;
 + (void)remove:(NSString *)identifier;
 + (NSString *)secret:(NSString *)identifier;
++ (nullable NSDictionary *)customHeaders:(NSString *)identifier error:(NSError **)error;
 + (nullable NSDictionary *)effectiveForProject:(nullable NSString *)projectID;
 + (void)setConnection:(nullable NSString *)identifier project:(nullable NSString *)projectID;
 @end
@@ -36,6 +37,7 @@ typedef void (^TFAIResult)(NSDictionary * _Nullable result, NSError * _Nullable 
 @property(nonatomic,copy,nullable) void (^bridge)(NSString *name, NSDictionary *arguments,TFAIResult completion);
 + (NSArray<NSDictionary *> *)schemas;
 - (void)prepare:(NSDictionary *)request completion:(TFAIResult)completion;
+- (void)prepareImportedTexts:(NSArray<NSDictionary *> *)files destination:(NSString *)destination completion:(TFAIResult)completion; // native review only
 - (void)selectEdits:(NSArray<NSNumber *> *)indexes plan:(NSDictionary *)plan completion:(TFAIResult)completion;
 - (void)setApprovalContext:(NSString *)context; // local UI/runtime provenance; never supplied by model
 - (void)execute:(NSDictionary *)plan approved:(BOOL)approved completion:(TFAIResult)completion;

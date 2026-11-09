@@ -12,9 +12,9 @@ iPhone / iPad 本机构建 · AI 开发助手 · 项目与 Git · 二进制工�
 
 </div>
 
-当前版本：**1.1.0（211）**，配套 **FLEX 插件 1.0.1**。本次汇总 Build202–210：上下文与工具调用、Exa 联网检索、会话及 FLEX 状态、插件签名、iOS26 界面与多行输入。
+当前版本：**1.1.1（225）**，配套 **FLEX 插件 1.0.2**。新增逐连接自定义 HTTP Headers（值存钥匙串）及“仅允许局域网 HTTP”设置。内置 11 项按需加载的插件开发与逆向技能；MCP 支持查询与经确认的设备交互、设置页选择会话；FLEX 日志支持大文件分页及末尾读取，默认 128 KiB、单次最高 512 KiB。远程连接仅支持 Wi-Fi 局域网和仅本机模式，已移除 Tailscale 与互联网中继；保留会话 Linux 终端、AI 持续进程、官方离线开发工具、网页预览及此前边界修复。使用方法见 [局域网与本机连接](docs/REMOTE_LOCAL.md)。
 
-[1.1.0 更新内容](docs/RELEASE_1.1.0.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_DYLIX_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
+[1.1.1 更新内容](docs/RELEASE_1.1.1.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_DYLIX_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
 
 ## 这是什么
 
@@ -43,7 +43,7 @@ Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTT
 - **AI 工作流**：多连接/多协议、流式 Markdown、代码块、思考与工具过程折叠、编辑重发、会话文件入口。
 - **普通会话也能开发**：列出、创建、克隆及选择项目，经目标确认后在原会话中继续编辑与构建。Git、下载、写入等操作遵循当前权限策略。
 - **文件与版本管理**：系统分享导入、只读目录授权、附件按需读取；libgit2 本地版本与 GitHub / Gitee 同步。
-- **本地分析工具**：IPA Objective-C 头文件导出、Mach-O / dylib 静态信息检查、离线崩溃分析与符号匹配。
+- **本地分析工具**：IPA Objective-C 头文件导出、Mach-O / dylib 静态信息检查、ARM64 反汇编、离线崩溃分析与符号匹配；导入的 Debian 包会在本机解开后按需分析。
 - **后台辅助与存储**：系统后台任务、可选音频辅助、完成通知、分类及按文件清理。
 
 ## 界面预览
@@ -92,9 +92,15 @@ Build 160：在手机「设置 → 远程开发 → 局域网远程」开启 HTT
 
 > 截图来自开源版 Build 134 的 iOS 模拟器；项目与 AI 对话使用演示数据。构建产物截图来自示例项目的实际本地编译；编译通过仍需在目标设备和宿主中验证运行效果。
 
+## 会话 Linux 终端
+
+Build212 新增内嵌 iSH ARM64 内核、Alpine 文件系统、PTY 和离线 xterm 页面，入口为“会话 → Agent 能力 → Linux 终端”。每个会话保留独立文件，AI 经确认后可以执行 Linux 命令、复制已选附件，并将生成文件导出到本会话文件列表；终端菜单也能直接分享沙盒文件。聊天 deb 附件可以在本机解开并按需浏览；小文本直接携带正文。
+
+完整链路、复现命令和限制见 [iSH 集成说明](docs/ISH_SANDBOX_INTEGRATION.md)。Linux 终端不等于 iOS 宿主 Shell，不挂载原项目；插件构建继续使用已有审批和本机工具链。
+
 ## 构建与安装
 
-开发主机为 macOS + Xcode / Apple Command Line Tools，另需 Python 3、CMake、Rust stable。
+开发主机为 macOS + Xcode / Apple Command Line Tools，另需 Python 3、CMake、Rust stable、Meson、Ninja 和 LLVM ld.lld。
 App 最低目标为 iOS 15；部分界面和后台能力按系统版本启用。当前模拟器构建脚本使用 x86_64（Apple Silicon 主机需安装适用的模拟器运行环境或自行扩展架构）。
 
 ```sh
@@ -105,7 +111,7 @@ rustup target add aarch64-apple-ios x86_64-apple-ios
 python3 scripts/build.py --sdk-root LocalSDKs/iPhoneOS26.0.sdk
 ```
 
-输出 `build/Dylix-1.1.0-build211-unsigned.ipa`。安装前使用自己的证书/适用安装方式处理主 App、Share Extension 和嵌套 framework 签名。仓库不包含个人证书、描述文件或共享 API 密钥。
+输出 `build/Dylix-1.1.1-build225-unsigned.ipa`。安装前使用自己的证书/适用安装方式处理主 App、Share Extension 和嵌套 framework 签名。仓库不包含个人证书、描述文件或共享 API 密钥。
 
 设备版默认要求 SDK26+；旧 Xcode 可通过 `DYLIX_SDK_26_0` 指向完整 SDK26 目录，缺失时停止构建。
 
@@ -133,12 +139,20 @@ Dylix 原创代码与修改采用 **GNU General Public License v3.0 or later（G
 
 欢迎通过 [贡献说明](CONTRIBUTING.md) 一起改进 Dylix。
 
+### Linux 终端与逆向分析（Build 213–215）
+
+终端与 AI 共享会话隔离的 Alpine 文件系统，支持持续 PTY 进程、增量读写、状态列表、停止和实际本地 HTTP 网页预览。终端菜单可安装随包的官方签名 Python/Node/npm/Git/curl/分析工具离线套件。详见 [运行、测试及真实限制](docs/ISH_SANDBOX_INTEGRATION.md)。iOS 插件编译继续使用本机 Clang/LLD/Logos 和现有审批，不把 guest Linux 编译冒充 iOS 编译。
+
+Build 214 新增终端菜单内的 Linux 文件管理、审核写回文本、本地 STDIO MCP，以及仅面向会话自有服务器的网页操作闭环。配置与边界见 [Linux 沙盒集成说明](docs/ISH_SANDBOX_INTEGRATION.md)。
+
+Build 215 新增 Ghidra/radare2 真实近似 C 反编译、函数/CFG/xrefs/P-code 分析，Linux 批量文件与目录审核写回、MCP 向导与钥匙串环境变量，以及公开网页 DOM 交互和临时截图。仅对已选暂存二进制副本操作，分析有超时和取消；完整边界见 [Linux 沙盒集成说明](docs/ISH_SANDBOX_INTEGRATION.md)。
+
 
 ## OpenCode Go（独立 Fork 增强）
 
 进入「AI 模型与连接」→「添加服务商」→「OpenCode Go」，填入从 OpenCode Console 获取的 Go API Key；默认模型为 `glm-5.3-flash`，也可获取实时模型列表重新选择。
 
-正式对话、工具续轮均携带稳定的 `x-opencode-session`（使用本地会话 UUID）；模型发现和能力测试使用临时 UUID。默认 `User-Agent` 为 `Dylix-Go/1.0`。API Key 仍按原版机制保存在 iOS 钥匙串。
+正式对话、工具续轮与同源重定向均携带稳定的 `x-opencode-session`（使用本地会话 UUID）；模型发现和能力测试使用临时 UUID。默认 `User-Agent` 为 `Dylix-Go/1.0`，与上游自定义请求头功能共存，且会话头在自定义头之后写入，不会被覆盖。API Key 仍按原版机制保存在 iOS 钥匙串。
 
 官方接口：`https://opencode.ai/inference/go/openai/v1/chat/completions`；模型列表：`https://opencode.ai/inference/go/v1/models`。OpenCode Go 主要服务于代码 Agent 场景，模型和能力按服务商当前政策、订阅权限和实际测试结果决定。
 

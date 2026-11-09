@@ -49,6 +49,8 @@ class Fixture(BaseHTTPRequestHandler):
         try:self.wfile.write(raw)
         except (BrokenPipeError,ConnectionResetError):pass
     def do_GET(self):
+        if "/headers/" in self.path and (self.headers.get("X-Client-Token")!="socket-fixture225" or self.headers.get("Authorization")!="Bearer explicit-fixture225"):
+            self.reply({"error":{"message":"client headers required"}},403);return
         if '/paged/' in self.path:
             if 'after=' in self.path:self.reply({'data':[{'id':'page-b'}],'has_more':False})
             else:self.reply({'data':[{'id':'page-a'}],'has_more':True,'last_id':'page-a'})
@@ -62,6 +64,8 @@ class Fixture(BaseHTTPRequestHandler):
         else:self.reply({'data':[{'id':'fixture-a'},{'id':'fixture-b'},{'id':'fixture-a'}]})
     def do_POST(self):
         body=json.loads(self.rfile.read(int(self.headers.get('Content-Length',0))))
+        if "/headers/" in self.path and (self.headers.get("X-Client-Token")!="socket-fixture225" or self.headers.get("Authorization")!="Bearer explicit-fixture225"):
+            self.reply({"error":{"message":"client headers required"}},403);return
         model=body['model']
         if model in ['401','429','503']:self.reply({'error':{'message':'fixture private details should not escape'}},int(model));return
         if model=='redirect':

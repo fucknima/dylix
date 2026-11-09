@@ -4,6 +4,7 @@ NSArray<NSDictionary *> *TFAIStageAttachmentFiles(NSString *root,NSArray<NSStrin
 NSArray<NSDictionary *> *TFAIResolveAttachments(NSArray<NSDictionary *> *entries,NSError **error);
 NSString *TFAIAttachmentLocalPath(NSDictionary *entry,NSError **error);
 BOOL TFAIAttachmentSensitive(NSString *text);
+NSString *TFAIInlineAttachmentText(NSDictionary *entry);
 
 NSDictionary *TFAIReadAttachmentReferences(NSDictionary *references,NSDictionary *arguments,NSError **error);
 
@@ -16,3 +17,6 @@ NSDictionary *TFAIReadDirectoryReference(NSDictionary *entry,NSDictionary *argum
 NSURL *TFAIDirectoryBrowserURL(NSDictionary *entry,NSError **error);
 
 void TFAIImportAttachmentURLs(NSArray<NSURL *> *urls,void(^completion)(NSArray *,NSError *));
+
+// Copies one explicitly selected ordinary file to an ephemeral local staging URL.
+void TFAIStageSandboxAttachment(NSDictionary *reference,NSString *relativePath,void (^completion)(NSURL *,NSError *));

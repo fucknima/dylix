@@ -82,13 +82,25 @@ resource_headers = ROOT / 'Resources/ClangInclude'
 shutil.copytree(resource_headers, app / 'ClangInclude', dirs_exist_ok=True)
 perl_config = (ROOT / 'Resources/Perl/Config.pm').read_text()
 assert '$^V eq 5.34.0' in perl_config and "dlsrc => 'dl_none.xs'" in perl_config, 'Expected iOS Perl 5.34.0 modules'
-resources = ['CompatibilityRules', 'ThirdPartyNotices', 'GitHelp', 'HelpArticles', 'Editor', 'GitDiff', 'RemoteWeb', 'Personas', 'AIProviders', 'AgentSkills', 'logos', 'Include', 'Perl', 'SampleProject', 'SampleObjectiveC', 'SampleMultiProject', 'FLEXProject', 'VendorFrameworks']
+resources = ['CompatibilityRules', 'ThirdPartyNotices', 'GitHelp', 'HelpArticles', 'Editor', 'GitDiff', 'RemoteWeb', 'Personas', 'AIProviders', 'AgentSkills', 'logos', 'Include', 'Perl', 'SampleProject', 'SampleObjectiveC', 'SampleMultiProject', 'FLEXProject', 'VendorFrameworks', 'Terminal']
 if args.simulator:
     resources.append('SampleLogosGenerated')
     resources.append('SampleMultiObjectiveC')
 for resource in resources:
     shutil.copytree(ROOT / 'Resources' / resource, app / resource, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('.git', '*.bundle', '*.dylib', '*.a', '*.o'))
+# Alpine userspace and signed offline developer kit used by the embedded runtime.
+ish_rootfs = ROOT / 'Resources' / 'iSH'
+if ish_rootfs.exists():
+    for stem, helper in [('developer-tools','fetch_ish_packages.py'),('reverse-tools','fetch_reverse_tools.py')]:
+        kit=ish_rootfs/(stem+'.tar');index=ish_rootfs/(stem+'.json')
+        if arch=='arm64' and (not kit.is_file() or not index.is_file()):
+            raise SystemExit('Missing official offline '+stem+'; run scripts/'+helper)
+        if kit.exists() or index.exists():
+            manifest=json.loads(index.read_text())
+            if manifest.get('architecture')!='aarch64' or hashlib.sha256(kit.read_bytes()).hexdigest()!=manifest.get('sha256'):
+                raise SystemExit('Offline '+stem+' manifest/hash mismatch')
+    shutil.copytree(ish_rootfs, app / 'iSH', dirs_exist_ok=True)
 flex_source = ROOT / 'Resources/FLEXPlugin'
 flex_manifest = json.loads((flex_source / 'manifest.json').read_text(encoding='utf-8'))
 flex_dest = app / 'FLEXPlugin'
@@ -110,7 +122,7 @@ info = {
     'CFBundleExecutable': 'TheosMobileCompiler', 'CFBundleIdentifier': 'com.xuegao.theosmobilecompiler',
     'CFBundleName': 'Dylix', 'CFBundleDisplayName': 'Dylix',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.0', 'CFBundleVersion': '211',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.1', 'CFBundleVersion': '225',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'Dylix Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'Dylix Incoming','CFBundleURLSchemes':['dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.xuegao.theosmobilecompiler.ai.processing'],
@@ -164,6 +176,30 @@ cmd = ['xcrun', '--sdk', sdk, 'clang', '-arch', arch, '-isysroot', sysroot,
        '-F' + str(frameworks), '-framework', 'ios_system',
        '-Wl,-needed_framework,libLLVM',
        '-Wl,-rpath,@executable_path/Frameworks', str(ROOT / 'App/main.m'), str(ROOT / 'App/RuntimeDiagnostics.m'), str(ROOT / 'App/ArchiveImport.m'), str(ROOT / 'App/TheosMakefile.m'), str(ROOT / 'App/DebPackage.m'), str(ROOT / 'App/OutputNaming.m'), str(ROOT / 'App/CompatibilityRepair.m'), str(ROOT / 'App/Studio.m'), str(ROOT / 'App/StorageSpace.m'), str(ROOT / 'App/ProjectSafety.m'), str(ROOT / 'App/ProjectTrash.m'), str(ROOT / 'App/GlassSupport.m'), str(ROOT / 'App/GitService.m'), str(ROOT / 'App/GitUI.m'), str(ROOT / 'App/GitHubRepositories.m'), str(ROOT / 'App/GitPATGuide.m'), str(ROOT / 'App/LinkSupport.m'), str(ROOT / 'App/HelpArticle.m'), str(ROOT / 'App/GitAutomation.m'), str(ROOT / 'App/GitDiffView.m'), str(gitlib), str(ROOT / 'Vendor/MBProgressHUD/MBProgressHUD.m'), '-o', str(app / 'TheosMobileCompiler')]
+# iSH host objects are ARM64 only; never link macOS or device archives into a simulator.
+ish_enabled = arch == 'arm64'
+if ish_enabled:
+    ish_dir = ROOT / 'build/ish' / platform
+    manifest_path = ish_dir / 'manifest.json'
+    from build_ish import source_digest
+    cached = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    if cached.get('sourceDigest') != source_digest():
+        subprocess.run(['python3', str(ROOT / 'scripts/build_ish.py'), '--platform', platform], check=True)
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get('platform') != sdk or manifest.get('architecture') != arch or manifest.get('jit') is not False:
+        raise SystemExit('iSH platform/architecture manifest does not match app target')
+    for name, digest in manifest['libraries'].items():
+        library = ish_dir / name
+        if hashlib.sha256(library.read_bytes()).hexdigest() != digest:
+            raise SystemExit('iSH library digest mismatch: ' + name)
+        cmd.append(str(library))
+    cmd.extend(['-DDYLIX_HAS_ISH=1', '-I' + str(ROOT / 'Vendor/iSH'), '-I' + str(ish_dir / 'meson'), '-lsqlite3', '-lresolv'])
+    shutil.copy2(ROOT / 'Vendor/iSH/LICENSE.md', app / 'iSH-LICENSE.md')
+    shutil.copy2(ROOT / 'Vendor/iSH/LICENSE.IOS', app / 'iSH-LICENSE.IOS')
+    shutil.copy2(ROOT / 'Vendor/iSH/DYLIX-NOTICE.md', app / 'iSH-NOTICE.md')
+    shutil.copy2(manifest_path, app / 'iSH/runtime-manifest.json')
+else:
+    cmd.append('-DDYLIX_HAS_ISH=0')
 cmd.extend(str(p) for p in sorted((ROOT / 'App/AI').rglob('*.m')))
 if args.simulator:
     for regression in ['Integration165IOSRegression.m', 'AgentIOSRegression.m', 'ToolRegistryIOSRegression.m']:
@@ -202,7 +238,7 @@ share.mkdir(parents=True, exist_ok=True)
 share_info = {
  'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':'com.xuegao.theosmobilecompiler.share',
  'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'Dylix','CFBundlePackageType':'XPC!',
- 'CFBundleShortVersionString':'1.1.0','CFBundleVersion':info['CFBundleVersion'],
+ 'CFBundleShortVersionString':'1.1.1','CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
  'DTSDKName':info['DTSDKName'],'DTPlatformVersion':info['DTPlatformVersion'],

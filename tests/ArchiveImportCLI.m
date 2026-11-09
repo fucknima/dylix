@@ -6,7 +6,11 @@ int main(int argc,const char **argv) {
         NSString *mode=@(argv[1]);NSError *error=nil;id result=nil;
         if([mode isEqual:@"projects"])result=TMCArchiveProjects(@(argv[2]),[NSProgress progressWithTotalUnitCount:1],&error);
         else if([mode isEqual:@"prepare"])result=TMCPrepareImportedProject(@(argv[2]),@"Fixture",&error);
-        else {
+        else if([mode isEqual:@"deb"]){
+            if(argc<4)return 2;
+            BOOL ok=TMCExtractDebPackage([NSURL fileURLWithPath:@(argv[2])],[NSURL fileURLWithPath:@(argv[3])],[NSProgress progressWithTotalUnitCount:1],nil,&error);
+            if(ok)result=@{@"extracted":@YES};
+        } else {
             if(argc<4)return 2;
             NSProgress *progress=[NSProgress progressWithTotalUnitCount:1];
             if([mode isEqual:@"cancel"])[progress cancel];

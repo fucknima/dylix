@@ -2,11 +2,20 @@
 #import "../App/Remote/DXRemoteAccess.h"
 #import "../App/Remote/DXRemoteHTTP.h"
 #import "../App/Remote/DXRemoteTLS.h"
+#import "../App/Remote/DXRemoteNetwork.h"
 static NSUInteger count;
 static void Check(BOOL ok,NSString *name){if(!ok){fprintf(stderr,"FAIL %s\n",name.UTF8String);exit(1);}count++;printf("PASS %s\n",name.UTF8String);}
 static NSInteger Parse(NSData *data){BOOL complete=NO;NSInteger fail=0;NSDictionary *r=DXRemoteParseRequest(data,&complete,&fail);return fail?:complete&&r?200:0;}
 static NSData *Bytes(NSString *s){return [s dataUsingEncoding:NSUTF8StringEncoding];}
 int main(int argc,char **argv){@autoreleasepool{
+ Check([DXRemoteSelectedMode(@"local") isEqual:@"local"]&&[DXRemoteSelectedMode(@"wifi") isEqual:@"wifi"],@"only LAN and local mode selected");
+ Check([DXRemoteSelectedMode(@"tailnet") isEqual:@"wifi"]&&[DXRemoteSelectedMode(@"invalid") isEqual:@"wifi"],@"removed and invalid stored modes safely fall back to LAN");
+ Check(!DXRemoteInterfaceAllowed(@"100.88.1.2",@"utun7",YES,@"wifi"),@"VPN interface never advertised");
+ Check(!DXRemoteInterfaceAllowed(@"100.88.1.2",@"pdp_ip0",YES,@"wifi"),@"carrier CGNAT never advertised");
+ Check(DXRemoteInterfaceAllowed(@"192.168.1.2",@"en0",YES,@"wifi")&&!DXRemoteInterfaceAllowed(@"192.168.1.2",@"en0",NO,@"wifi"),@"LAN requires active Wi-Fi interface");
+ Check(!DXRemotePeerAllowed(@"100.99.1.2",@"192.168.1.2")&&!DXRemotePeerAllowed(@"8.8.8.8",@"192.168.1.2"),@"LAN listener rejects overlay and public peers");
+ Check(DXRemotePeerAllowed(@"192.168.1.3",@"192.168.1.2")&&DXRemotePeerAllowed(@"127.0.0.1",@"192.168.1.2"),@"existing LAN and local access preserved");
+ Check(DXRemotePeerAllowed(@"127.0.0.1",@"127.0.0.1")&&!DXRemotePeerAllowed(@"192.168.1.2",@"127.0.0.1"),@"same-device mode only accepts loopback");
  Check(Parse(Bytes(@"GET / HTTP/1.1\r\nHost: 127.0.0.1:8787\r\n\r\n"))==200,@"valid HTTP request");
  Check(Parse(Bytes(@"GET / HTTP/1.1\r\nHost: local\r\n"))==0,@"partial header waits");
  Check(Parse(Bytes(@"POST /api HTTP/1.1\r\nHost: local\r\nContent-Length: 5\r\n\r\n123"))==0,@"partial body waits");

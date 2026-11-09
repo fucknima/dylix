@@ -199,6 +199,43 @@ with tempfile.TemporaryDirectory(prefix="tmc-archives-") as work:
         call("prepare", malformed, ok=False, code=5)
     results.append("Malformed manifest and escaped source paths: rejected")
 
+    def make_deb(path, members):
+        blob=bytearray(b"!<arch>\n")
+        for name,body in members:
+            blob.extend(f'{name+"/":<16}{0:<12}{0:<6}{0:<6}{"100644":<8}{len(body):<10}`\n'.encode())
+            blob.extend(body)
+            if len(body)%2: blob.extend(b"\n")
+        path.write_bytes(blob)
+
+    def tar_member(name, body, mode="w:gz"):
+        data=io.BytesIO()
+        with tarfile.open(fileobj=data,mode=mode) as arc:
+            item=tarfile.TarInfo(name);item.size=len(body);item.mode=0o644
+            arc.addfile(item,io.BytesIO(body))
+        return data.getvalue()
+
+    for extension,compression in [("gz","w:gz"),("xz","w:xz"),("", "w")]:
+        suffix="."+extension if extension else ""
+        deb=root/("fixture-"+(extension or "plain")+".deb")
+        control=tar_member("postinst",b"#!/bin/sh\ntouch SHOULD_NOT_RUN\n",compression)
+        data=tar_member("usr/share/fixture.txt",b"REAL_DEB_PAYLOAD\n",compression)
+        members=[("debian-binary",b"2.0\n"),("control.tar"+suffix,control),("data.tar"+suffix,data)]
+        make_deb(deb,members)
+        dest=root/("deb-"+(extension or "plain"))
+        call("deb",deb,dest)
+        assert (dest/"usr/share/fixture.txt").read_bytes()==b"REAL_DEB_PAYLOAD\n"
+        assert (dest/"DEBIAN/postinst").is_file()
+        assert not (dest/"SHOULD_NOT_RUN").exists()
+        call("deb",deb,dest,ok=False,code=1)
+        assert (dest/"usr/share/fixture.txt").exists()
+    results.append("DEB gzip/xz/plain: real ar + payload + DEBIAN extraction; scripts not executed; existing output preserved")
+    for label,members in [("missing",[("debian-binary",b"2.0\n")]),("duplicate",[("debian-binary",b"2.0\n"),("data.tar.gz",data),("data.tar.xz",data),("control.tar.gz",control)])]:
+        deb=root/(label+".deb");make_deb(deb,members);dest=root/(label+"-output")
+        call("deb",deb,dest,ok=False,code=1);assert not dest.exists()
+    disguised=root/"not-a-deb.deb";disguised.write_bytes(archive.read_bytes())
+    call("deb",disguised,root/"disguised-output",ok=False,code=1)
+    results.append("DEB invalid/missing/ambiguous layers rejected without partial output")
+
     fixture_paths = sys.argv[2:] or sorted((pathlib.Path(__file__).parent / "fixtures").glob("*.rar.uu"))
     for fixture in map(pathlib.Path, fixture_paths):
         raw = bytearray()

@@ -1,0 +1,21 @@
+Dylix in-process touch driver
+
+FLEXDylixTouchDriver.m references/adapts UIKit private API declarations and
+IOHID event composition from:
+
+KIF, Copyright 2011-2016 Square, Inc. (Apache License 2.0)
+https://github.com/kif-framework/KIF
+Commit: 357a70fe0ccfb8ae5097d6ac14d0f010b376787d
+Sources: UITouch-KIFAdditions.m, UIEvent+KIFAdditions.m, IOHIDEvent+KIF.m
+
+EarlGrey, Copyright 2016 Google Inc. (Apache License 2.0)
+https://github.com/google/EarlGrey
+Commit: aea2d32233dc2cd2eff7906426944c8f287c0855
+Source: EarlGrey/Event/GREYTouchInjector.m
+
+Modified for Dylix: bounded asynchronous path delivery, runtime symbol/selector
+probes, no raw UITouch ivar writes, cancellation, foreground/window checks,
+explicit delivery versus semantic-outcome reporting. No KIF/EarlGrey test
+framework or XCTest runtime is bundled as a dependency.
+
+Apache License 2.0 text is in DylixTouch-APACHE-2.0.txt.

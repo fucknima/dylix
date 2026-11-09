@@ -138,5 +138,41 @@
     "license": "MIT",
     "source": "https://github.com/MDX-Tom/gpt-instruct",
     "file": "GPT-Instruct-LICENSE.txt"
+  },
+  {
+    "name": "r2ghidra 6.2.6",
+    "license": "LGPL-3.0-only; bundled Ghidra Apache-2.0",
+    "source": "https://github.com/radareorg/r2ghidra/tree/6.2.6",
+    "file": "r2ghidra-NOTICE.txt"
+  },
+  {
+    "name": "GNU LGPL v3 (r2ghidra)",
+    "license": "LGPL-3.0-only",
+    "source": "https://github.com/radareorg/r2ghidra/tree/6.2.6",
+    "file": "r2ghidra-LGPL-3.0.txt"
+  },
+  {
+    "name": "GNU GPL v3 (r2ghidra)",
+    "license": "GPL-3.0",
+    "source": "https://github.com/radareorg/r2ghidra/tree/6.2.6",
+    "file": "r2ghidra-GPL-3.0.txt"
+  },
+  {
+    "name": "radare2 6.2.6",
+    "license": "GPL/LGPL (see upstream file)",
+    "source": "https://github.com/radareorg/radare2/tree/6.2.6",
+    "file": "radare2-LICENSE.txt"
+  },
+  {
+    "name": "Ghidra native 0.7.2",
+    "license": "Apache-2.0",
+    "source": "https://github.com/radareorg/ghidra-native/tree/0.7.2",
+    "file": "ghidra-native-LICENSE.txt"
+  },
+  {
+    "name": "radare2 third-party license texts",
+    "license": "File-specific LGPL/GPL/BSD/MIT/Apache/zlib",
+    "source": "https://github.com/radareorg/radare2/tree/6.2.6/doc/licenses",
+    "file": "radare2-THIRD-PARTY.txt"
   }
 ]

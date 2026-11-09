@@ -141,6 +141,49 @@ BOOL TMCExtractArchive(NSURL *input, NSURL *destination, NSString *password,
     return ok;
 }
 
+BOOL TMCExtractDebPackage(NSURL *input, NSURL *destination,
+                          NSProgress *cancellation, TMCArchiveProgress progress, NSError **outError) {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    if ([fm fileExistsAtPath:destination.path])
+        return Fail(outError,TMCArchiveInvalid,@"解包目标已存在，未覆盖原有文件，请使用新目录");
+    NSFileHandle *header=[NSFileHandle fileHandleForReadingFromURL:input error:outError];
+    if(!header)return NO;
+    NSData *magic=[header readDataUpToLength:8 error:outError];[header closeFile];
+    if(![magic isEqual:[@"!<arch>\n" dataUsingEncoding:NSASCIIStringEncoding]])
+        return Fail(outError,TMCArchiveInvalid,@"不是有效的 Debian ar 包");
+    NSString *stage = [NSTemporaryDirectory() stringByAppendingPathComponent:
+                       [@"TweakForgeDeb-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+    NSError *error = nil;
+    BOOL ok = TMCExtractArchive(input, [NSURL fileURLWithPath:stage], nil,
+                                cancellation, progress, &error);
+    if (!ok) { if (outError) *outError = error; return NO; }
+    NSArray *members = [fm contentsOfDirectoryAtPath:stage error:&error];
+    NSString *dataArchive = nil, *controlArchive = nil;NSUInteger payloads=0,controls=0;
+    for (NSString *name in members) {
+        NSString *lower = name.lowercaseString;
+        if ([lower hasPrefix:@"data.tar."]||[lower isEqual:@"data.tar"]){dataArchive=name;payloads++;}
+        else if ([lower hasPrefix:@"control.tar."]||[lower isEqual:@"control.tar"]){controlArchive=name;controls++;}
+    }
+    NSData *version=[NSData dataWithContentsOfFile:[stage stringByAppendingPathComponent:@"debian-binary"]];
+    if (payloads!=1||controls!=1||![version isEqual:[@"2.0\n" dataUsingEncoding:NSASCIIStringEncoding]]) {
+        [fm removeItemAtPath:stage error:nil];
+        if (outError) *outError = ImportError(TMCArchiveInvalid, @"Debian 包缺少有效版本、唯一内容层或控制层");
+        return NO;
+    }
+    ok = [fm createDirectoryAtPath:destination.path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&error];
+    if (ok) ok = TMCExtractArchive([NSURL fileURLWithPath:[stage stringByAppendingPathComponent:dataArchive]],
+                                   destination, nil, cancellation, progress, &error);
+    if (ok && controlArchive) {
+        NSString *control = [destination.path stringByAppendingPathComponent:@"DEBIAN"];
+        ok = TMCExtractArchive([NSURL fileURLWithPath:[stage stringByAppendingPathComponent:controlArchive]],
+                               [NSURL fileURLWithPath:control], nil, cancellation, progress, &error);
+    }
+    [fm removeItemAtPath:stage error:nil];
+    if (!ok) [fm removeItemAtURL:destination error:nil];
+    if (outError) *outError = error;
+    return ok;
+}
+
 static BOOL SkipDirectory(NSString *name) {
     return [@[@".git",@".svn",@".theos",@".build",@"build",@"DerivedData",@"packages",@"node_modules",@"__MACOSX",@"SDK",@"ClangInclude"] containsObject:name]
         ||[@[@"framework",@"xcframework",@"app",@"bundle",@"xcodeproj",@"xcworkspace"] containsObject:name.pathExtension.lowercaseString];

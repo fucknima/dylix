@@ -21,11 +21,17 @@ runtime=(root/'App/AI/Core/AIRuntime.m').read_text()
 ui=(root/'App/AI/UI/TFAISettings.m').read_text()
 assert 'if(models&&[original isEqual:@"opencode-go"]' in proto
 assert '@"/inference/go/v1/models"' in proto
+# upstream Build225 custom headers must survive the merge
+assert 'TFAIValidatedCustomHeaders' in proto and 'customHeaders' in transport
+assert 'self.requestHeaders=nil;' in transport
+assert '@property NSString *goRequestSessionID;' in transport
+assert 'self.requestHeaders=nil;self.goRequestSessionID=NSUUID.UUID.UUIDString;' in transport
+assert 'applyGoSessionHeader' in transport and transport.count('applyGoSessionHeader')==3
+assert 'for(NSString *name in self.requestHeaders)[request setValue:self.requestHeaders[name] forHTTPHeaderField:name];' in transport
 assert 'connection[@"goSessionID"]' in transport
 assert 'forHTTPHeaderField:@"x-opencode-session"' in transport
-assert 'if([connection[@"protocol"] isEqualToString:@"opencode-go"])' in transport
-assert 'Dylix-Go/1.0' in transport
 assert 'self.goRequestSessionID?:NSUUID.UUID.UUIDString' in transport, 'header value must never be nil'
+assert 'else if([connection[@"protocol"] isEqualToString:@"opencode-go"])[request setValue:@"Dylix-Go/1.0"' in transport
 assert 'goConnection[@"goSessionID"]=self.sessionID' in runtime
 assert 'connection:transportConnection tools:schemas' in runtime
 assert '[entry[@"id"] isEqualToString:@"opencode-go"]?@"glm-5.3-flash"' in ui

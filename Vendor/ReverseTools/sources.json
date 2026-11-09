@@ -1,0 +1,50 @@
+[
+  {
+    "file": "r2ghidra/APKBUILD",
+    "sha256": "d88996c4c1d714a2800092871285a214c31294c4fe1b31377d829f7cbed50e4c",
+    "sha512": "748658ab82f0ba80ee27db4460516354212cc1ce4cc07103b88e5c931cba8530f588523959992aca0c879c7bfe3c3844eff84ecc6bfb7f0d10f34e9fcc868ea9",
+    "bytes": 1783
+  },
+  {
+    "file": "r2ghidra/ghidra-native-0.7.2.tar.gz",
+    "sha256": "955cf54c15a8babf244f611e2168034d07ccf5f2abba54c0753f3a11ec0d9ca8",
+    "sha512": "c64d8e481625140a8ab158affe23a9ce68631200ac05017e093d7695a6d2220012cb4baf5be6d6214c537089ed77e3c8ed7c74190493c022233f7fd43b92fd3b",
+    "bytes": 3595743
+  },
+  {
+    "file": "r2ghidra/r2ghidra-6.2.6.tar.gz",
+    "sha256": "112e681b383494c3a12315e3ced1310936005422191d420717b3e3289f623ad4",
+    "sha512": "d2289e59c74d8b0c1022fed413cea52fdfbc773892b2f395fc6535c98a277378c6111c98c5055046fa597447f432b6c1c07608715acdf7fb3e55237bb189ceb4",
+    "bytes": 403312
+  },
+  {
+    "file": "r2ghidra/use-system-zlib.patch",
+    "sha256": "2ed2a32327ce8cceba7d5d0c36574ceab0da0d319be4e5addff712a01ff3af5f",
+    "sha512": "fb2e8c5c4d075f92f325dae39016713d4290b3f3d7824749fc247a7bc876ee55e3d90edf583db96e554840dc4bfb2d44c8b8113aaece64534da06ce172138fa6",
+    "bytes": 1968
+  },
+  {
+    "file": "radare2/APKBUILD",
+    "sha256": "fa3da0651c408d7516fdc4bc057dc01944fbe2a34904244b7bd655cc221eab9a",
+    "sha512": "fcc0407aae285ba54c056e5d6506832988cd127182e687d9cf59da73451d1ed0a5f72cdd050aca97323944b49a07c795fe81ea84ce7a32409fa03516e7a4f0eb",
+    "bytes": 4703
+  },
+  {
+    "file": "radare2/quickjs-b51e5278439b2fa0510fbb1f3b3dff9f0064d5d7.tar.gz",
+    "sha256": "34e92aefe62e06638c72fe9d13e6f0c1cf445744aa0068f7fd29afba4d31fdf9",
+    "sha512": "b0647e2559320dea9f8f38b9e6a713a208ab01b574ce4a4047e23b91c82a28939e2b6905c490b18b2394afd8a0a717c7fbf1506cb60a7794213b2f4671fc3157",
+    "bytes": 870744
+  },
+  {
+    "file": "radare2/radare-sdb-2.6.2.tar.gz",
+    "sha256": "ca634db0bc0f85f1e65b05c576b791905422426df0f0a6d99cd4d0e1a40b1e8a",
+    "sha512": "66327aadc262b8e1d105666cf9e1f9bb4fdbfe2aa4dbd1b1773c8690f465f1e0406b1785e7d3d75e47fcccdfe9cda87c9735803ddd2d8761261093440233caf2",
+    "bytes": 325096
+  },
+  {
+    "file": "radare2/radare2-6.2.6.tar.gz",
+    "sha256": "ef5ae9a0785be28ff38ea61e3b1351232c068691868bab98613c67a8b7aa4872",
+    "sha512": "303ca08c430fcc279a0a2358ce9dab93e2bb507b78def33eefa58b76ac3c273256f3ec33990ce974921f393ed7073de9e139354be000e679333e7fc82ba52eda",
+    "bytes": 12971516
+  }
+]

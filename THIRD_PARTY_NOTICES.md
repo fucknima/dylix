@@ -60,3 +60,21 @@ Build152：远程工作台轻量编辑器与文件预览复用已列出的highli
 - FLEX 上游 https://github.com/FLEXTool/FLEX ，BSD-3-Clause，原文保留于 Resources/ThirdPartyNotices/FLEX-LICENSE.txt；FLEX++ 修改及 Dylix 桥接的当前完整对应源码随 1.1.0 Release 的 FLEX-1.0.1-source.zip 提供；原 1.0.0 对应源码保留于 1.0.8 Release。
 - Capstone 相关许可保留于 Resources/ThirdPartyNotices/Capstone-LICENSE.txt，源文件头部声明继续保留。
 - 进程内触摸适配的 KIF / EarlGrey 来源及 Apache-2.0 原文见 FLEXTouch-NOTICE 和 FLEXTouch-DylixTouch-APACHE-2.0.txt。
+
+## Build212 内嵌 Linux 终端
+
+- iSH ARM64：OpenMinis/ish-arm64，revision `c5c264da19148512167aa493d7bd4e50aae1b74e`，GPLv3 与 LICENSE.IOS。完整对应源码、原始声明和 Dylix 修改清单保存在 `Vendor/iSH`。App 携带 `iSH-LICENSE.md`、`iSH-LICENSE.IOS`、`iSH-NOTICE.md` 和完整 GPL 文本 `Dylix-LICENSE.txt`。
+- Alpine minirootfs 3.21.0 aarch64：官方原始归档，许可证按各包元数据保留，SHA-256 与下载来源见 `Vendor/iSH/DYLIX-NOTICE.md`。
+- @xterm/xterm 5.5.0 与 @xterm/addon-fit 0.10.0：MIT，原始版权与许可保存在 `Resources/Terminal/xterm-LICENSE`、`addon-fit-LICENSE`，随离线页面一起打包。
+- 原生 Objective-C 适配层研究了 OpenMinis / Kelivo 的内核、fakefs 与 PTY 接口结构；未复制 Swift/Flutter 页面。iSH 自身仍保留完整上游声明，不冒称原创内核。实现与测试见 `docs/ISH_SANDBOX_INTEGRATION.md`。
+
+### Alpine offline developer tools (Build 213)
+
+`Resources/iSH/developer-tools.tar` carries unchanged officially signed Alpine 3.21 aarch64 APKs. Exact packages, official URLs, SHA-256, licenses and origins are in the adjacent JSON manifest. Guest apk verifies Alpine signatures on installation. Upstream sources/build recipes are available from `https://gitlab.alpinelinux.org/alpine/aports` and `https://distfiles.alpinelinux.org/distfiles/v3.21/`; GPL/LGPL and other individual package licenses remain applicable. See `Vendor/iSH/DYLIX-NOTICE.md`.
+
+## Build 215：独立逆向工具包
+
+- radare2 6.2.6 / radare2-libs：GPL-3.0-or-later、LGPL-2.0-or-later、LGPL-2.1-or-later（文件级声明为准）。原始来源 https://github.com/radareorg/radare2/tree/6.2.6 ，原文见 Resources/ThirdPartyNotices/radare2-LICENSE.txt。
+- r2ghidra 6.2.6：LGPL-3.0-only；Ghidra native 0.7.2：Apache-2.0。来源 https://github.com/radareorg/r2ghidra/tree/6.2.6 和 https://github.com/radareorg/ghidra-native/tree/0.7.2 。原始许可证及 GPL/LGPL 全文随包保留于 ThirdPartyNotices；不将引擎冒称为本项目原创。
+- 使用未修改的官方 Alpine edge aarch64 签名 APK，在 guest 内通过独立 loader/prefix 执行，未链接进 iOS 主程序。全部 16 包的版本、URL、SHA-256、license、origin、精确 aports commit 与源配方 URL 在 Resources/iSH/reverse-tools.json。完整引擎来源及 Alpine 补丁见 Vendor/ReverseTools，源代码获取以固定版本与校验值为准。
+- 原生 Objective-C 适配、权限/选择校验、结果分页和 UI 由 Dylix 实现；未复制 OpenMinis 的 Swift 实现。

@@ -23,8 +23,9 @@ with tempfile.TemporaryDirectory(prefix='flex-connection-') as folder:
     binary=Path(folder)/'test'
     subprocess.run(['xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk',
                     '-fobjc-arc','-Wall','-Werror','-I',str(args.flex),
-                    str(Path(__file__).with_name('FlexConnectionTests.m')),str(args.flex/'FLEXDylixConnection.m'),
+                    str(Path(__file__).with_name('FlexConnectionTests.m')),str(args.flex/'FLEXDylixConnection.m'),str(args.flex/'FLEXDylixAddress.m'),
                     '-framework','Foundation','-o',str(binary)],check=True)
+    for name,ok in json.loads(subprocess.check_output([str(binary),'--scopes'])).items():check(ok,name)
     def run(port,path='/api/v1/pair',timeout=.4):
         result=json.loads(subprocess.check_output([str(binary),str(port),path,str(timeout)],timeout=5))
         for secret in ['fixture-code-never-log','fixture-token-never-log','fixture-csrf-never-log','response-secret-never-log']:

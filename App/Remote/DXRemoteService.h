@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setWebDAVPort:(NSUInteger)port;
 - (void)startWebDAVProject:(NSString *)project readOnly:(BOOL)readOnly;
 - (void)stopWebDAV;
+- (void)setNetworkMode:(NSString *)mode;
 @end
 UIViewController *DXRemoteSettingsController(void);
 NS_ASSUME_NONNULL_END

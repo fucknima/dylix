@@ -43,7 +43,7 @@ static void PatchFailure(NSError **error,NSString *code,NSString *message,NSStri
 }
 static void Complete(TFAIResult callback,NSDictionary *result,NSError *error){dispatch_async(dispatch_get_main_queue(),^{if(callback)callback(result,error);});}
 static NSString *ReadText(NSString *path,NSError **error){NSDictionary *attrs=[NSFileManager.defaultManager attributesOfItemAtPath:path error:error];if(!attrs)return nil;if([attrs[NSFileSize] unsignedLongLongValue]>TFMaxText){Error(error,@"文件超过 512 KB；请先选择较小文件或在编辑器拆分上下文");return nil;}NSData *data=[NSData dataWithContentsOfFile:path options:0 error:error];NSString *text=data?[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]:nil;if(data&&!text){Error(error,@"只读取 UTF-8 文本；二进制文件不作为代码发送");return nil;}if(TFAIContainsSecret(text)){Error(error,@"文件含疑似密钥，已停止读取；请移除敏感内容后重新选择");return nil;}return text;}
-static NSDictionary *Immutable(NSDictionary *object){NSData *data=TFAIJSON(object,nil);return data?[NSJSONSerialization JSONObjectWithData:data options:0 error:nil]:nil;}
+static id Immutable(id object){NSData *data=TFAIJSON(object,nil);return data?[NSJSONSerialization JSONObjectWithData:data options:0 error:nil]:nil;}
 static BOOL IsWrite(NSString *name){return [@[@"create_directory",@"git_stage",@"prepare_project",@"clean_builds",@"apply_approved_patch",@"create_file",@"request_delete",@"build_project",@"cancel_build",@"git_save_version",@"git_download_updates",@"git_upload",@"download_file",@"extract_archive"] containsObject:name];}
 static BOOL IsCritical(NSString *name){return [@[@"create_directory",@"git_stage",@"prepare_project",@"clean_builds",@"request_delete",@"git_save_version",@"git_download_updates",@"git_upload",@"download_file",@"extract_archive"] containsObject:name];}
 @interface TFAIToolbox ()
@@ -161,6 +161,23 @@ NSArray *allowed=@[@"name",@"productName",@"sources",@"frameworks",@"libraries",
  NSDictionary *plan=[self newPlan:copy error:&error];if(plan){self.plans[plan[@"id"]]=plan;self.seen[identifier]=hash;}Complete(completion,plan,error);
  });
 }
+// Native directory-review entry only. No new model tool/schema or approval bypass.
+- (void)prepareImportedTexts:(NSArray *)files destination:(NSString *)destination completion:(TFAIResult)completion{
+ NSArray *snapshot=Immutable(files);NSString *base=[destination copy]?:@"";dispatch_async(TMCGitService.queue,^{NSError *error=nil;TMCGitLease *lease __attribute__((objc_precise_lifetime))=[TMCGitLease acquire];
+  if(self.cancelled||[TMCGitLease isBuilding:self.root]||![snapshot isKindOfClass:NSArray.class]||!snapshot.count||snapshot.count>24){Complete(completion,nil,TFAIToolError(@"请在构建结束后选择 1–24 个 UTF-8 文件"));return;}
+  NSMutableArray *edits=[NSMutableArray new];NSMutableSet *paths=[NSMutableSet new];NSUInteger bytes=0;
+  for(id file in snapshot){if(![file isKindOfClass:NSDictionary.class]||![file[@"relative"] isKindOfClass:NSString.class]||![file[@"content"] isKindOfClass:NSString.class]){error=TFAIToolError(@"目录审核数据无效");break;}
+   NSString *path=base.length?[base stringByAppendingPathComponent:file[@"relative"]]:file[@"relative"],*full=TFAISafePath(self.root,path,NO,&error),*after=file[@"content"];NSData *next=[after dataUsingEncoding:NSUTF8StringEncoding];bytes+=next.length;
+   if(!full||[paths containsObject:path]||next.length>256*1024||bytes>1024*1024||TFAIContainsSecret(after)){if(!error)error=TFAIToolError(@"重复路径、内容过大或含疑似密钥，整个批次未写入");break;}[paths addObject:path];BOOL directory=NO;if(![NSFileManager.defaultManager fileExistsAtPath:full.stringByDeletingLastPathComponent isDirectory:&directory]||!directory){error=TFAIToolError([@"请先在项目中创建父目录：" stringByAppendingString:path.stringByDeletingLastPathComponent]);break;}
+   BOOL exists=[NSFileManager.defaultManager fileExistsAtPath:full];NSData *beforeData=exists?[NSData dataWithContentsOfFile:full options:0 error:&error]:nil;if(error)break;if(beforeData.length>256*1024){error=TFAIToolError(@"项目目标超过 256 KiB，请缩小导入范围");break;}NSString *before=exists?[[NSString alloc]initWithData:beforeData encoding:NSUTF8StringEncoding]:@"";if(!before){error=TFAIToolError(@"项目目标不是 UTF-8，未进行覆盖");break;}if(exists&&[before isEqual:after])continue;
+   [edits addObject:@{@"path":path,@"before":before,@"after":after,@"hash":TFAIDigest(beforeData),@"exists":@(exists),@"afterExists":@YES,@"line":@1,@"kind":[path isEqual:@"MobileCompiler.json"]?@"configuration":exists?@"source":@"create"}];
+  }
+  if(error||!edits.count){Complete(completion,nil,error?:TFAIToolError(@"目录文件没有需要写回的差异"));return;}
+  NSString *proposal=NSUUID.UUID.UUIDString;self.proposals[proposal]=@{@"edits":edits};NSDictionary *request=@{@"id":NSUUID.UUID.UUIDString,@"name":@"apply_approved_patch",@"arguments":@{@"proposal_id":proposal}};
+  [self prepare:request completion:completion];
+ });
+}
+
 - (BOOL)validatePlan:(NSDictionary *)plan error:(NSError **)error {
  if(![plan isKindOfClass:NSDictionary.class]||![plan[@"id"] isKindOfClass:NSString.class])return Error(error,@"缺少本地工具预览");NSDictionary *known=self.plans[plan[@"id"]];if(!known||![TFAIJSON(known,nil) isEqual:TFAIJSON(plan,nil)])return Error(error,@"批准范围已变化或并非本地生成，请重新预览");if([plan[@"expires"] doubleValue]<NSDate.date.timeIntervalSince1970)return Error(error,@"预览已过期，请重新生成");return YES;
 }

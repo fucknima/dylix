@@ -1,8 +1,20 @@
 #import <Foundation/Foundation.h>
 #import "FLEXDylixConnection.h"
+#import "FLEXDylixAddress.h"
 #import <errno.h>
 
 int main(int argc, const char **argv) { @autoreleasepool {
+    if(argc==2&&!strcmp(argv[1],"--scopes")){
+        NSMutableDictionary *checks=[NSMutableDictionary new];NSString *host=nil;NSUInteger port=0;
+        checks[@"local address and actual port accepted"]=@(FLEXDylixParseAddress(@"http://127.0.0.1:9456",&host,&port,NULL)&&[host isEqual:@"127.0.0.1"]&&port==9456);
+        checks[@"LAN private address accepted"]=@(FLEXDylixParseAddress(@"http://192.168.1.9:9456",NULL,NULL,NULL));
+        checks[@"removed VPN address rejected"]=@(!FLEXDylixParseAddress(@"http://100.88.1.2:9456",NULL,NULL,NULL));
+        checks[@"public address rejected"]=@(!FLEXDylixParseAddress(@"http://8.8.8.8:9456",NULL,NULL,NULL));
+        checks[@"removed HTTPS relay address rejected"]=@(!FLEXDylixParseAddress(@"https://example.com",NULL,NULL,NULL));
+        checks[@"domain relay address rejected"]=@(!FLEXDylixParseAddress(@"http://example.com:9456",NULL,NULL,NULL));
+        NSError *error=nil;NSDictionary *result=FLEXDylixHTTPRequest(@"100.88.1.2",9456,@"/api/v1/status",@{},nil,nil,.1,NULL,&error);checks[@"stale saved VPN endpoint rejected before socket connection"]=@(result==nil&&error.code==EINVAL);
+        NSData *json=[NSJSONSerialization dataWithJSONObject:checks options:0 error:nil];fwrite(json.bytes,1,json.length,stdout);return 0;
+    }
     if(argc==3 && !strcmp(argv[1],"--live")) {
         NSDictionary *state=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[NSString stringWithUTF8String:argv[2]]]?:NSData.data options:0 error:nil];
         if(![state[@"state"] isEqual:@"running"] || ![state[@"address"] isEqual:@"127.0.0.1"] || ![state[@"code"] length])return 3;

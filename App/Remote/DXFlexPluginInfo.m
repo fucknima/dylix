@@ -15,7 +15,7 @@
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return section==0?1:section==1?4:2; }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return @[@"插件简介",@"可用能力",@"分享安装包"][section]; }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
- if(section==0)return @"FLEX++ 运行在你选择注入的目标 App 内；Dylix 通过已配对的局域网连接接收现场数据和工具结果。";
+ if(section==0)return @"FLEX++ 运行在你选择注入的目标 App 内；Dylix 通过已配对的局域网或本机连接接收现场数据和工具结果。同一设备可使用仅本机模式，无需 Wi-Fi。";
  if(section==1)return @"敏感读取与视图控制受 FLEX 工具权限约束。Dylix 不会因分享安装包而自动注入目标 App。";
  if(section==2)return @"在目标设备上使用适合其环境的安装方式。deb 面向 rootless 环境；dylib 供需要独立插件文件的工作流使用。";
  return nil;
