@@ -4,6 +4,8 @@
 - (NSArray<NSDictionary *> *)servers;
 - (BOOL)importJSON:(NSString *)text error:(NSError **)error;
 - (BOOL)setEnvironment:(NSDictionary *)environment server:(NSString *)identifier error:(NSError **)error;
+- (void)cancelSession:(NSString *)session;
+- (NSArray<NSDictionary *> *)auditForSession:(NSString *)session;
 - (NSDictionary *)diagnostics:(NSString *)identifier session:(NSString *)session;
 - (void)remove:(NSString *)identifier;
 - (void)setEnabled:(BOOL)enabled server:(NSString *)identifier session:(NSString *)session;

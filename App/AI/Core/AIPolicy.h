@@ -24,5 +24,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Cancel pending single-use approvals without discarding the session preset.
 - (void)clearReviewedPlans;
 - (void)revoke;
+/// Full project sessions may automate commands inside the isolated Alpine guest.
+- (BOOL)allowsSessionTerminalAutomation;
 @end
 NS_ASSUME_NONNULL_END

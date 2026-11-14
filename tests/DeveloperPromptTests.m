@@ -28,6 +28,7 @@ int main(void){@autoreleasepool{
  NSDictionary *headers=TFAIDevelopmentGuide(@{@"topic":@"headers"},nil);Check([headers[@"content"] containsString:@"父类及子类"]&&[headers[@"content"] containsString:@"完整selector"]&&[headers[@"content"] containsString:@"防重复UI"]&&[headers[@"content"] containsString:@"观察版"],"header guide retains signature/lifecycle/observation workflow");
  Check(![headers[@"content"] containsString:@"iphoneos-arm64e"]&&![headers[@"content"] containsString:@"给定密钥XOR"],"one guide does not load unrelated topics");
  for(id args in @[@{},@{@"topic":@"../../secret"},@{@"topic":@"headers",@"path":@"/private"},@{@"topic":NSNull.null},@{@"topic":@[@"headers"]},NSNull.null]){NSError *error=nil;Check(!TFAIDevelopmentGuide(args,&error)&&error!=nil,"invalid guide request fails without file access");}
+ printf("CORE_PROMPT_BYTES %lu\n",(unsigned long)[a lengthOfBytesUsingEncoding:NSUTF8StringEncoding]);
  Check([a lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<5000,"ordinary core prompt has a size regression ceiling");
  printf("RESULT %d checks %d failures\n",count,failed);return failed?1:0;
 }}

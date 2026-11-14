@@ -1,0 +1,51 @@
+#import "../App/AI/Attachments/TFAIDirectoryPickerDiagnostics.h"
+static int count=0;
+static void Check(BOOL ok,NSString *name){count++;if(!ok){NSLog(@"FAIL %@",name);exit(1);}}
+int main(void){@autoreleasepool{
+ NSString *bundle=@"com.example.app";
+ NSDictionary *valid=@{@"application-identifier":@"TEAM.com.example.app",@"com.apple.developer.team-identifier":@"TEAM"};
+ NSDictionary *(^Report)(NSDictionary *,NSString *)=^NSDictionary *(NSDictionary *e,NSString *allowed){return TFAIDirectorySigningChecks(bundle,e,allowed?@{@"Entitlements":@{@"application-identifier":allowed}}:@{});};
+ NSDictionary *r=Report(valid,@"TEAM.com.example.app");
+ Check([r[@"applicationIdentifierMatchesBundleID"] boolValue],@"exact bundle suffix");
+ Check([r[@"teamMatchesApplicationIdentifier"] boolValue],@"team prefix");
+ Check([r[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"profile exact identifier");
+ Check([Report(valid,@"TEAM.*")[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"team wildcard profile");
+ Check([Report(valid,@"TEAM.com.example.*")[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"bundle family wildcard profile");
+ Check(![Report(valid,@"OTHER.*")[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"wrong profile team");
+ Check(![Report(valid,@"TEAM.com.example.other")[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"wrong profile app");
+ Check(![Report(valid,@"*.com.example.*")[@"profileAllowsSignedApplicationIdentifier"] boolValue],@"unsupported embedded wildcard rejected");
+ Check(![Report(@{@"application-identifier":@"TEAM.badcom.example.app"},nil)[@"applicationIdentifierMatchesBundleID"] boolValue],@"bundle needs dot separator");
+ Check(![Report(@{@"application-identifier":@"TEAM.com.example.app.extra"},nil)[@"applicationIdentifierMatchesBundleID"] boolValue],@"bundle suffix must be exact");
+ Check(Report(@{},nil)[@"applicationIdentifierPresent"]==NSNull.null,@"unavailable or DER is unknown");
+ Check(![Report(@{@"com.apple.security.application-groups":@[@"group.example"]},nil)[@"applicationIdentifierPresent"] boolValue],@"groups alone do not prove app identity");
+ Check(Report(valid,nil)[@"profileAllowsSignedApplicationIdentifier"]==NSNull.null,@"absent profile is unknown");
+ Check(Report(@{@"application-identifier":@42},nil)[@"applicationIdentifierMatchesBundleID"]==NSNull.null,@"malformed signed identifier unknown");
+ Check(![Report(@{@"application-identifier":@"OTHER.com.example.app",@"com.apple.developer.team-identifier":@"TEAM"},nil)[@"teamMatchesApplicationIdentifier"] boolValue],@"inconsistent signed team");
+ NSData *data=[NSJSONSerialization dataWithJSONObject:Report(@{@"application-identifier":@"TEAM.com.example.app",@"secret":@"DO_NOT_EXPORT",@"com.apple.developer.team-identifier":@"TEAM"},@"TEAM.*") options:0 error:nil];
+ Check(data!=nil,@"report JSON serializable");
+ Check(![[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding] containsString:@"DO_NOT_EXPORT"],@"unrelated entitlement values not exported");
+ Check([TFAIDirectoryPickerDiagnostics()[@"note"] containsString:@"不验证签名信任"],@"metadata report does not claim signature trust");
+ Check([Report(valid,@"TEAM.com.example.app")[@"identityStatus"] isEqual:@"metadata_consistent"],@"consistent metadata status");
+ Check([Report(@{@"application-identifier":@"TEAM.other"},@"TEAM.other")[@"identityStatus"] isEqual:@"mismatch"],@"fixed profile mismatch actionable");
+ Check([Report(@{},nil)[@"identityStatus"] isEqual:@"unknown"],@"missing signature remains unknown");
+ Check([Report(valid,@"TEAM.*")[@"signedApplicationIdentifier"] isEqual:@"TEAM.com.example.app"],@"only public identity exported");
+ NSDictionary *fixed=@{@"ApplicationIdentifierPrefix":@[@"PREFIX"],@"Entitlements":@{@"application-identifier":@"PREFIX.app.panda1248.maroon8441"}};
+ NSDictionary *bad=TFAIDirectorySigningChecks(bundle,@{},fixed);
+ Check([bad[@"profileMatchesBundleID"] isEqual:@NO],@"profile mismatch detected without XML entitlements");
+ Check([bad[@"suggestedBundleIdentifier"] isEqual:@"app.panda1248.maroon8441"],@"suggestion strips App ID prefix");
+ Check([TFAIDirectorySigningWarning(bad) containsString:@"app.panda1248.maroon8441"],@"warning includes actual allowed ID");
+ Check([TFAIDirectorySigningWarning(bad) containsString:bundle],@"warning includes installed Bundle ID");
+ Check([TFAIDirectorySigningWarning(bad) containsString:@"备份"],@"migration backup warning");
+ Check(TFAIDirectorySigningWarning(TFAIDirectorySigningChecks(@"app.panda1248.maroon8441",@{},fixed))==nil,@"matching profile silent even without signed XML");
+ Check(TFAIDirectorySigningWarning(Report(valid,@"TEAM.*"))==nil,@"allowed wildcard silent");
+ Check(TFAIDirectorySigningWarning(Report(valid,@"TEAM.com.example.*"))==nil,@"allowed family wildcard silent");
+ Check(TFAIDirectorySigningWarning(Report(@{},nil))==nil,@"unknown silent");
+ Check(TFAIDirectorySigningWarning(Report(valid,nil))==nil,@"missing profile but valid signature silent");
+ Check(TFAIDirectorySigningWarning(@{})==nil,@"missing fields silent");
+ Check(TFAIDirectorySigningWarning(Report(valid,@"OTHER.*"))!=nil,@"explicit signed/profile conflict warning");
+ Check(TFAIDirectorySigningWarning(TFAIDirectorySigningChecks(bundle,@{},@{@"Entitlements":@{@"application-identifier":@42}}))==nil,@"malformed profile silent");
+ Check(TFAIDirectorySigningWarning(TFAIDirectorySigningChecks(bundle,@{},@{@"Entitlements":@{@"application-identifier":@"PREFIX.*.bad"}}))==nil,@"unsupported wildcard unknown");
+ Check([TFAIDirectorySigningChecks(bundle,@{},@{@"Entitlements":@{@"application-identifier":@"PREFIX.com.other.*"}})[@"suggestedBundleIdentifier"] isEqual:@""],@"wildcard never offered as concrete ID");
+ Check([TFAIDirectorySigningChecks(bundle,@{},@{@"ApplicationIdentifierPrefix":@[@"PREFIX"],@"Entitlements":@{@"application-identifier":@"PREFIX.com.example.app",@"com.apple.developer.team-identifier":@"OTHER"}})[@"profileMatchesBundleID"] isEqual:@YES],@"legacy App ID prefix independent of team");
+ printf("PASS %d directory-picker signing metadata checks\n",count);
+}}

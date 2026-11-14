@@ -1,3 +1,4 @@
+#import "../App/AI/Agent/TFAISubtasks.m"
 #import <Foundation/Foundation.h>
 #ifdef TFAI_VISION_IMAGEIO
 #import <ImageIO/ImageIO.h>
@@ -21,6 +22,9 @@ NSString *UIApplicationDidEnterBackgroundNotification=@"FixtureBackground";
 #import "../App/AI/Tools/TFAIWebTools.h"
 #import "../App/AI/Core/AIPolicy.h"
 static NSMutableArray *personaCaptured;
+static NSDictionary *FixtureLastConnection;
+static NSMutableArray *FixturePolicyConfigurations;
+static BOOL FixtureRequireApproval;static NSUInteger FixtureChildApprovals;
 static void(^FixtureTransport)(NSArray *,NSArray *,TFAIEvent);
 static NSDictionary *FixtureContextOverrides;
 static NSArray *FixtureToolSchemas;
@@ -32,7 +36,7 @@ static NSUInteger requests,executions;static NSString *mode;static NSMutableArra
 static void Check(BOOL yes,NSString *name){if(!yes){NSLog(@"FAIL %@",name);exit(1);}NSLog(@"PASS %@",name);}
 @implementation TFAITransport
 - (void)cancel{}
-- (void)send:(NSArray *)messages connection:(NSDictionary *)connection tools:(NSArray *)tools event:(TFAIEvent)event{requests++;if(FixtureTransport){FixtureTransport(messages,tools,event);return;}if([mode isEqual:@"persona"]){[personaCaptured addObject:@{@"messages":[messages copy],@"tools":[tools copy]}];event(@{@"type":@"text",@"text":@"fixture reply"});event(@{@"type":@"done"});return;}if([mode isEqual:@"empty"]){event(@{@"type":@"done"});return;}if([mode isEqual:@"wait"])return;Check(tools.count>0,@"tools remain available beyond old count limits");
+- (void)send:(NSArray *)messages connection:(NSDictionary *)connection tools:(NSArray *)tools event:(TFAIEvent)event{requests++;FixtureLastConnection=connection;if(FixtureTransport){FixtureTransport(messages,tools,event);return;}if([mode isEqual:@"persona"]){[personaCaptured addObject:@{@"messages":[messages copy],@"tools":[tools copy]}];event(@{@"type":@"text",@"text":@"fixture reply"});event(@{@"type":@"done"});return;}if([mode isEqual:@"empty"]){event(@{@"type":@"done"});return;}if([mode isEqual:@"wait"])return;Check(tools.count>0,@"tools remain available beyond old count limits");
  if(requests>40){for(NSDictionary *m in messages)for(NSDictionary *c in m[@"tool_calls"]){NSUInteger matched=0;for(NSDictionary *r in messages)if([r[@"tool_call_id"] isEqual:c[@"id"]])matched++;Check(matched==1,@"each tool has exactly one result");}event(@{@"type":@"text",@"text":@"分析完成。"});event(@{@"type":@"done"});return;}
  NSUInteger count=[mode isEqual:@"batch"]?30:1;for(NSUInteger i=0;i<count;i++)event(@{@"type":@"tool_call",@"id":[NSString stringWithFormat:@"call-%lu-%lu",requests,i],@"name":@"read_file",@"arguments":@{@"path":@"Fixture.m"}});event(@{@"type":@"done"});}
 @end
@@ -43,7 +47,7 @@ static void Check(BOOL yes,NSString *name){if(!yes){NSLog(@"FAIL %@",name);exit(
 - (void)setBridge:(void(^)(NSString *,NSDictionary *,TFAIResult))b{}
 - (void)prepare:(NSDictionary *)request completion:(TFAIResult)done{done(@{@"request":request,@"readOnly":@YES},nil);}
 - (void)setApprovalContext:(NSString *)context{}
-- (void)execute:(NSDictionary *)plan approved:(BOOL)approved completion:(TFAIResult)done{executions++;done(@{@"text":@"fixture"},nil);}
+- (void)execute:(NSDictionary *)plan approved:(BOOL)approved completion:(TFAIResult)done{executions++;done(@{@"text":[NSString stringWithFormat:@"fixture-%lu",(unsigned long)executions]},nil);}
 - (void)selectEdits:(NSArray *)a plan:(NSDictionary *)p completion:(TFAIResult)c{c(p,nil);}
 - (void)undo:(TFAIResult)c{c(@{},nil);}
 @end
@@ -56,14 +60,18 @@ static BOOL FixtureWebEnabled;static NSUInteger FixtureWebCalls;
 + (NSArray *)schemas{return @[];}
 - (void)cancel{}
 @end
+#ifndef DYLIX_TEST_REAL_POLICY
 @implementation TFAIRuntimePolicy
 - (instancetype)initWithRoot:(NSString *)r projectID:(NSString *)p sessionID:(NSString *)s{return [super init];}
+- (BOOL)configurePreset:(NSString *)preset paths:(NSArray *)paths session:(NSString *)session error:(NSError **)error{if(FixturePolicyConfigurations)[FixturePolicyConfigurations addObject:@{@"preset":preset,@"paths":paths,@"session":session}];return YES;}
 - (NSTimeInterval)expiresAt{return 0;}
 - (NSString *)preset{return @"assisted";}
+- (BOOL)allowsSessionTerminalAutomation{return NO;}
 - (void)clearReviewedPlans{fixturePlanClears++;}
 - (void)revoke{fixturePolicyRevokes++;}
-- (NSDictionary *)decisionForPlan:(NSDictionary *)p{return @{@"decision":@"allowed",@"readOnly":@YES};}
+- (NSDictionary *)decisionForPlan:(NSDictionary *)p{return FixtureRequireApproval?@{@"decision":@"needsApproval",@"readOnly":@NO}:@{@"decision":@"allowed",@"readOnly":@YES};}
 @end
+#endif
 NSArray *TFAIMessageMetadata(NSArray *a,NSDictionary *b){return a;}
 BOOL TFAIContainsSecret(NSString *s){return NO;}
 NSSet *TFAIBinarySelectedIDs(NSDictionary *r){return [NSSet set];}
@@ -105,6 +113,7 @@ static NSUInteger FixtureProcessCalls;
 @implementation TFAIISHRuntime
 + (instancetype)shared{static id r;static dispatch_once_t once;dispatch_once(&once,^{r=[self new];});return r;}
 + (BOOL)available{return NO;}
+- (void)configureProject:(NSString *)root session:(NSString *)session{}
 + (BOOL)developerToolsAvailable{return YES;}
 + (BOOL)reverseToolsAvailable{return YES;}
 - (void)installReverseTools:(NSString *)session completion:(void (^)(NSDictionary *,NSError *))done{done(@{@"process_id":@"fixture-process"},nil);}
@@ -145,14 +154,17 @@ static NSArray *FixtureCompactedMessages;
 + (NSArray *)skills:(NSString *)root{return FixtureSkillMetadata.length?@[@{@"id":@"skill-1"}]:@[];}
 + (NSString *)metadata:(NSString *)root{return FixtureSkillMetadata?:@"";}
 + (NSString *)memory:(NSString *)root error:(NSError **)error{return @"fixture memory";}
++ (NSDictionary *)memoryResult:(NSDictionary *)args root:(NSString *)root error:(NSError **)error{return @{@"content":@"fixture memory",@"local":@YES};}
 + (NSString *)fingerprint:(NSString *)text{return @"fixture-hash";}
 + (NSArray *)compact:(NSArray *)messages root:(NSString *)root session:(NSString *)session error:(NSError **)error{return FixtureCompactedMessages?:messages;}
 @end
 @implementation TFAIMCP
+- (void)cancelSession:(NSString *)session{}
 + (instancetype)shared{static id m;static dispatch_once_t once;dispatch_once(&once,^{m=[self new];});return m;}
 - (NSArray *)schemas:(NSString *)session{return @[];}
 @end
 @implementation TFAIReadOnlyBrowser
++ (BOOL)AIBlockedForSession:(NSString *)session{return NO;}
 + (instancetype)browserForSession:(NSString *)session{static id browser;static dispatch_once_t once;dispatch_once(&once,^{browser=[self new];});return browser;}
 - (void)perform:(NSDictionary *)args completion:(TFAIResult)done{FixtureWebCalls++;done(@{@"snapshot":@"public-fixture"},nil);}
 - (void)cancel{}
@@ -172,6 +184,12 @@ NSDictionary *TFAIToolRemoteStatus(void){return @{};}
 @implementation TFAIBuildQueue
 + (instancetype)shared{static id m;static dispatch_once_t once;dispatch_once(&once,^{m=[self new];});return m;}
 - (NSArray *)tasks{return @[];}
+@end
+BOOL TFAIAttachmentSensitive(NSString *text){return [text containsString:@"FAKE_SECRET"]; }
+void TFAIChildApproval(NSDictionary *plan,BOOL(^valid)(void),void(^decision)(BOOL,NSArray *)){FixtureChildApprovals++;decision(NO,nil);}
+#import "../App/AI/Attachments/TFAIDirectoryRegistry.h"
+@implementation TFAIDirectoryRegistry
++ (NSArray *)entries{return @[];}
 @end
 #import "../App/AI/Core/AIRuntime.m"
 @interface PatchFeedbackRuntime : TFProjectAIRuntime @end

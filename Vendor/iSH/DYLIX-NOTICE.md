@@ -38,3 +38,5 @@ Alpine source/build recipes: https://gitlab.alpinelinux.org/alpine/aports
 Corresponding distfiles: https://distfiles.alpinelinux.org/distfiles/v3.21/
 These package sources/build recipes are separate from iSH; their respective
 upstream licenses apply. No --allow-untrusted or alternate mirror is used.
+
+- 2026-11-09：修正 mount_find 父挂载缓存遮蔽嵌套挂载；每次按最长匹配选择 mount，防止会话只读技能视图落回可写 fakefs。

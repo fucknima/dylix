@@ -1,19 +1,66 @@
+#import "../App/AI/Resources/DXResourceStore.h"
+#import "../App/SDKResources.h"
+#import <objc/runtime.h>
+#import <UIKit/UIKit.h>
+#import "../ShareExtension/TFShareFileProvider.h"
+#import "../Vendor/libarchive-headers/archive.h"
+#import "../Vendor/libarchive-headers/archive_entry.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+@interface UIViewController (Directory241)
+- (void)chooseFolderCompatible:(BOOL)compatible;
+@end
+#import "../App/AI/Permissions/TFAIPolicy.h"
+#import "../App/AI/Agent/TFAIReadOnlyBrowser.h"
 #import <UIKit/UIKit.h>
 #import "../App/AI/Agent/TFAIWebDOM.h"
 #import "../App/AI/Sandbox/TFAIISHRuntime.h"
 #import "../App/AI/Sandbox/TFAIISHTerminal.h"
 #import <WebKit/WebKit.h>
+#import "../App/AI/Agent/TFAIAgentContext.h"
+#import "../App/AI/Sandbox/TFAIISHEnvironment.h"
+#import "../App/AI/Sandbox/TFAIISHEnvironmentUI.h"
 #import "../App/AI/Sandbox/TFAIISHPreview.h"
 #import "../App/AI/Sandbox/TFAIISHExports.h"
 #import "../App/AI/Sandbox/TFAIISHMCPTransport.h"
 #import "../App/AI/Agent/TFAIMCP.h"
+#import "../App/AI/Attachments/TFAIDirectoryRegistry.h"
+#import "../App/AI/Attachments/TFAIAttachmentStore.h"
+#import "../App/AI/Sandbox/TFAIISHRemote.h"
+#import "../App/AI/Sandbox/TFAIISHRootCatalog.h"
+#import "../App/AI/Sandbox/TFAIISHMirrors.h"
+@interface UIViewController (MirrorHarness)
+- (NSDictionary *)fastest:(NSString *)group;
+- (void)probe;
+@end
+BOOL TFAIAttachmentSensitive(NSString *text){return [text containsString:@"FAKE_SECRET"]; }
+NSDictionary *TFAIBinaryStage(NSData *data,NSString *name,NSError **error){return nil;}
+NSString *TFAIAttachmentLocalPath(NSDictionary *entry,NSError **error){return nil;}
+NSDictionary *TFAIReadAttachmentReferences(NSDictionary *references,NSDictionary *arguments,NSError **error){return nil;}
 NSError *TFAIError(NSInteger code,NSString *message){return [NSError errorWithDomain:@"Dylix.Test" code:code userInfo:@{NSLocalizedDescriptionKey:message}];}
 #import "../App/AI/Sandbox/TFAIISHFiles.h"
 // Runtime harness exercises file browsing UI; the real project write engine has
 // a separate 348-case regression suite. Never claim these linker stubs test writeback.
 @implementation TFAIToolbox
 @end
+
+UIViewController *TFAIAgentSettingsController(NSString *root,NSString *session){return [UIViewController new];}
 UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL,NSArray *)){return [UIViewController new];}
+#import "../App/GlassSupport.h"
+@implementation TMCNavigationController
+@end
+static void Message(UIViewController *host,NSString *title,NSString *text){}
+@interface UIViewController (WorkspaceHarnessSave)
+- (BOOL)save;
+@end
+#include "../App/ProjectWorkspace.inc"
+#include "../App/WorkspaceSplit.inc"
+@interface DraftController : UIViewController
+@property UITextView *text;
+@end
+@implementation DraftController
+- (void)viewDidLoad{[super viewDidLoad];self.text=[[UITextView alloc]initWithFrame:self.view.bounds];self.text.text=@"UNSAVED_DRAFT";self.text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;[self.view addSubview:self.text];}
+- (BOOL)save{return YES;}
+@end
 @interface ISHProof : UIResponder <UIApplicationDelegate>
 @property(nonatomic) UIWindow *window;
 @property NSMutableArray *results;
@@ -26,14 +73,79 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
 @property BOOL domAllowed;
 @property uint64_t installOffset;
 @end
+#import "../App/AI/Backup/DXBackup.h"
+#import "../App/AI/Backup/DXBackupTask.h"
+#import "../App/AI/Sandbox/TFAIISHHub.h"
+#import "../App/GitPreferences.h"
+BOOL TMCBuildIsRunning(void){return NO;}
+BOOL TFAIHasLiveRuns(void){return NO;}
+@implementation TMCGitLease
++ (instancetype)tryWrite{return [self new];}
++ (BOOL)hasActiveBuilds{return NO;}
+@end
 @implementation ISHProof
+#include "Terminal263IOS.inc"
+#include "Backup262IOS.inc"
+#include "SharedTools260IOS.inc"
+#include "DataWorkflows237IOS.inc"
+#include "OptionalResources247IOS.inc"
+#include "Packages253IOS.inc"
+#include "ShareFolder241IOS.inc"
+#include "Workspace227IOS.inc"
 - (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)opts{
  self.results=[NSMutableArray new];self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];UIViewController *vc=[UIViewController new];vc.view.backgroundColor=UIColor.systemBackgroundColor;self.window.rootViewController=vc;[self.window makeKeyAndVisible];
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--terminal263"]){[self terminal263];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--backup262"]){[self backup262];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--shared260"]){[self shared260];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--shared260-check"]){[self shared260Check];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--folder-native240"]){self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:TFAIDirectoryRegistryController(@"native240")];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--share-native241"]){dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{NSURL *folder=[self shareFixture241];UIActivityViewController *sheet=[[UIActivityViewController alloc]initWithActivityItems:@[folder] applicationActivities:nil];sheet.popoverPresentationController.sourceView=vc.view;sheet.popoverPresentationController.sourceRect=CGRectMake(100,100,1,1);[vc presentViewController:sheet animated:YES completion:nil];});return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--packages253"]){[self packages253];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--resources247"]){[self resources247];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--resources247-persist"]){[self persistResources247];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--data237"]){[self data237];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--directory-check227"]){NSArray *args=NSProcessInfo.processInfo.arguments;[self directoryCheck227:[args[[args indexOfObject:@"--directory-check227"]+1] integerValue]];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--workspace227"]){[self workspace227];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--root-check227"]){NSArray *args=NSProcessInfo.processInfo.arguments;[self rootCheck227:[args[[args indexOfObject:@"--root-check227"]+1] integerValue]];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--root227"]){[self root227];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--browser-ui"]){TFAIReadOnlyBrowser *first=[TFAIReadOnlyBrowser browserForSession:@"browser-a"],*other=[TFAIReadOnlyBrowser browserForSession:@"browser-b"];[self record:@"browser_session_isolation" passed:first!=other&&first.webView.configuration.websiteDataStore!=other.webView.configuration.websiteDataStore detail:nil];NSString *identifier=[TFAIReadOnlyBrowser tabsForSession:@"browser-a"].firstObject[@"id"];for(int i=0;i<7;i++)[TFAIReadOnlyBrowser newTabForSession:@"browser-a"];[self record:@"browser_tab_capacity" passed:[TFAIReadOnlyBrowser tabsForSession:@"browser-a"].count==8&&![TFAIReadOnlyBrowser newTabForSession:@"browser-a"] detail:nil];[self record:@"browser_tab_scope" passed:![TFAIReadOnlyBrowser selectTab:identifier session:@"browser-b"] detail:nil];[TFAIReadOnlyBrowser selectTab:identifier session:@"browser-a"];[self record:@"browser_select_preserves_webview" passed:[TFAIReadOnlyBrowser browserForSession:@"browser-a"]==first detail:nil];[TFAIReadOnlyBrowser closeTab:identifier session:@"browser-a"];[self record:@"browser_close_reselects" passed:[TFAIReadOnlyBrowser tabsForSession:@"browser-a"].count==7&&[TFAIReadOnlyBrowser browserForSession:@"browser-a"]!=first detail:nil];[TFAIReadOnlyBrowser setManualLogin:YES session:@"browser-a"];[self record:@"browser_manual_login_session_gate" passed:[TFAIReadOnlyBrowser AIBlockedForSession:@"browser-a"]&&![TFAIReadOnlyBrowser AIBlockedForSession:@"browser-b"]&&![TFAIReadOnlyBrowser newTabForSession:@"browser-a"]&&![TFAIReadOnlyBrowser selectTab:identifier session:@"browser-a"] detail:nil];[first perform:@{@"action":@"observe"} completion:^(NSDictionary *r,NSError *error){[self record:@"browser_stale_tab_cannot_read_login" passed:error&&!r detail:nil];}];[TFAIReadOnlyBrowser setManualLogin:NO session:@"browser-a"];[self record:@"browser_manual_login_exit_readonly" passed:![TFAIReadOnlyBrowser AIBlockedForSession:@"browser-a"] detail:nil];[TFAIReadOnlyBrowser clearSession:@"browser-a" completion:^{[self record:@"browser_clear_isolation" passed:[TFAIReadOnlyBrowser tabsForSession:@"browser-a"].count==1&&[TFAIReadOnlyBrowser browserForSession:@"browser-b"]==other detail:nil];UIViewController *page=TFAIReadOnlyBrowserControllerWithAsk(@"browser-a",nil);self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:page];dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{[self record:@"browser_ui" passed:page.isViewLoaded&&page.navigationItem.rightBarButtonItems.count==2 detail:@{@"width":@(page.view.bounds.size.width)}];});}];return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--environment-ui"]){UIViewController *page=TFAIISHEnvironmentController(@"proof-one",nil);self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:page];dispatch_after(dispatch_time(DISPATCH_TIME_NOW,2*NSEC_PER_SEC),dispatch_get_main_queue(),^{[page.view layoutIfNeeded];UITableView *table=((UITableViewController *)page).tableView;[self record:@"environment_ui" passed:[page.title isEqual:@"Linux 环境"]&&table.numberOfSections==4&&table.bounds.size.width>0&&[table numberOfRowsInSection:0]==3 detail:@{@"width":@(table.bounds.size.width),@"height":@(table.bounds.size.height)}];});return YES;}
+ if([NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-seed"]||[NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-backup"]||[NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-restore"]||[NSProcessInfo.processInfo.arguments containsObject:@"--maintenance-reset"]){[self maintenanceSmoke];return YES;}
  if([NSProcessInfo.processInfo.arguments containsObject:@"--verify-persistence"]){
   NSArray *history=[TFAIISHRuntime.shared processes:@"proof-one"];BOOL hasInterrupted=NO,noReplay=YES,noSecrets=YES;for(NSDictionary *row in history){if([row[@"state"] isEqual:@"interrupted_by_app_restart"])hasInterrupted=YES;noReplay&=![row[@"running"] boolValue];noSecrets&=!row[@"command"]&&!row[@"output"]&&!row[@"environment"];}
   [self record:@"process_restart_history" passed:hasInterrupted&&noReplay&&noSecrets&&history.count<=32 detail:history];
   [[TFAIISHRuntime shared]execute:@"cat /workspace/persist.txt" session:@"proof-one" timeout:15 output:nil completion:^(NSDictionary *r,NSError *e){[self.results addObject:@{@"test":@"app_restart_persistence",@"passed":@(!e&&[r[@"output"] containsString:@"persisted"]),@"result":r?:@{},@"error":e.localizedDescription?:@""}];[self save];}];
  }else if([NSProcessInfo.processInfo.arguments containsObject:@"--test-reverse-only"])[self reverseTests];else [self run:0];return YES;
+}
+- (void)skillSmoke:(void(^)(void))done{
+ NSString *root=[NSTemporaryDirectory() stringByAppendingPathComponent:@"dylix-skill-proof"],*folder=[root stringByAppendingPathComponent:@".dylix/skills/theos-logos"],*file=[folder stringByAppendingPathComponent:@"SKILL.md"];
+ [NSFileManager.defaultManager createDirectoryAtPath:folder withIntermediateDirectories:YES attributes:nil error:nil];[@"---\nname: Override\ndescription: Project test\n---\nSKILL_PROJECT_ONE" writeToFile:file atomically:YES encoding:NSUTF8StringEncoding error:nil];
+ [@"NEVER_EXPOSE_SCRIPT" writeToFile:[folder stringByAppendingPathComponent:@"run.sh"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+ [TFAIISHRuntime.shared configureProject:root session:@"proof-project-skills"];
+ [TFAIISHRuntime.shared execute:@"cat $DYLIX_SKILLS_DIR/theos-logos/SKILL.md; test ! -f $DYLIX_SKILLS_DIR/theos-logos/run.sh && echo NO_SCRIPTS" session:@"proof-project-skills" timeout:20 output:nil completion:^(NSDictionary *r,NSError *e){[self record:@"skills_project_override_and_no_scripts" passed:!e&&[r[@"output"] containsString:@"SKILL_PROJECT_ONE"]&&[r[@"output"] containsString:@"NO_SCRIPTS"] detail:e.localizedDescription];
+  [@"---\nname: Override\ndescription: Project test\n---\nSKILL_PROJECT_TWO" writeToFile:file atomically:YES encoding:NSUTF8StringEncoding error:nil];
+  [TFAIISHRuntime.shared execute:@"cat $DYLIX_SKILLS_DIR/theos-logos/SKILL.md; if rm $DYLIX_SKILLS_DIR/theos-logos/SKILL.md 2>/dev/null; then echo REMOVE_FAILED; else echo REMOVE_BLOCKED; fi" session:@"proof-project-skills" timeout:20 output:nil completion:^(NSDictionary *r,NSError *e){[self record:@"skills_hot_refresh_and_remove_blocked" passed:!e&&[r[@"output"] containsString:@"SKILL_PROJECT_TWO"]&&[r[@"output"] containsString:@"REMOVE_BLOCKED"] detail:e.localizedDescription];
+   [TFAIISHRuntime.shared execute:@"cat $DYLIX_SKILLS_DIR/theos-logos/SKILL.md" session:@"proof-two" timeout:20 output:nil completion:^(NSDictionary *r,NSError *e){[self record:@"skills_project_isolated_across_sessions" passed:!e&&[r[@"output"] length]>0&&![r[@"output"] containsString:@"SKILL_PROJECT_TWO"] detail:e.localizedDescription];[self projectCopySmoke:root done:done];}];
+  }];
+ }];
+}
+- (void)projectCopySmoke:(NSString *)root done:(void(^)(void))done{
+ NSString *source=[root stringByAppendingPathComponent:@"Tweak.m"];[@"int project_copy_original = 7;\n" writeToFile:source atomically:YES encoding:NSUTF8StringEncoding error:nil];
+ [TFAIISHRuntime.shared importProjectCopy:root session:@"proof-project-skills" completion:^(NSDictionary *r,NSError *e){[self record:@"project_source_copy_import" passed:!e&&[r[@"files"] intValue]==1 detail:e.localizedDescription];if(e){done();return;}NSString *command=[NSString stringWithFormat:@"pwd; cat '%@/Tweak.m'; echo CHANGED_IN_GUEST > '%@/Tweak.m'",r[@"path"],r[@"path"]];
+  [TFAIISHRuntime.shared execute:command session:@"proof-project-skills" timeout:20 output:nil completion:^(NSDictionary *out,NSError *e){NSString *host=[NSString stringWithContentsOfFile:source encoding:NSUTF8StringEncoding error:nil];[self record:@"project_cwd_and_copy_do_not_mutate_original" passed:!e&&[out[@"output"] containsString:@"/workspace/projects/"]&&[out[@"output"] containsString:@"project_copy_original"]&&[host containsString:@"project_copy_original"] detail:e.localizedDescription];
+   for(int i=0;i<25;i++)[@"int header;" writeToFile:[root stringByAppendingPathComponent:[NSString stringWithFormat:@"limit-%d.h",i]] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+   [TFAIISHRuntime.shared importProjectCopy:root session:@"proof-project-skills" completion:^(NSDictionary *r,NSError *e){[self record:@"project_copy_retains_existing_file_limit" passed:e&&!r detail:e.localizedDescription];for(int i=0;i<25;i++)[NSFileManager.defaultManager removeItemAtPath:[root stringByAppendingPathComponent:[NSString stringWithFormat:@"limit-%d.h",i]] error:nil];done();}];
+  }];
+ }];
+}
+- (void)maintenanceSmoke{
+ NSArray *args=NSProcessInfo.processInfo.arguments;BOOL seed=[args containsObject:@"--maintenance-seed"],reset=[args containsObject:@"--maintenance-reset"],restore=[args containsObject:@"--maintenance-restore"];
+ NSString *session=@"proof-maintenance",*key=TFAIISHEnvironment.sharedKey,*stage=seed?@"seed":reset?@"reset":restore?@"restore":@"backup";
+ void(^run)(void)=^{NSString *command=seed?@"mkdir -p /workspace; printf ORIGINAL > /workspace/env-one; rm -f /workspace/env-two; ln /workspace/env-one /workspace/env-two; chmod 640 /workspace/env-one; echo SEEDED":reset?@"test ! -f /workspace/env-one && echo RESET_OK":restore?@"cat /workspace/env-one; cat /workspace/env-two; test $(stat -c %i /workspace/env-one) = $(stat -c %i /workspace/env-two) && echo LINKS_OK; stat -c %a /workspace/env-one":@"printf CHANGED > /workspace/env-one; echo CHANGED_OK";
+ [TFAIISHRuntime.shared execute:command session:session timeout:30 output:nil completion:^(NSDictionary *r,NSError *e){NSString *text=r[@"output"];BOOL ok=!e&&[r[@"exit_code"] intValue]==0&&(seed?[text containsString:@"SEEDED"]:reset?[text containsString:@"RESET_OK"]:restore?([text containsString:@"ORIGINALORIGINAL"]&&[text containsString:@"LINKS_OK"]&&[text containsString:@"640"]):[text containsString:@"CHANGED_OK"]);[self record:[@"maintenance_" stringByAppendingString:stage] passed:ok detail:r?:e.localizedDescription];}];};
+ if(seed){run();return;}
+ NSString *snapshot=nil;if(restore){NSDictionary *inventory=[TFAIISHEnvironment inventoryAtBase:TFAIISHEnvironment.basePath];for(NSDictionary *row in inventory[@"snapshots"])if([row[@"sessionKey"] isEqual:key]){snapshot=row[@"id"];break;}}
+ [TFAIISHRuntime.shared scheduleMaintenance:reset?@"reset":restore?@"restore":@"backup" sessionKey:key snapshot:snapshot completion:^(NSError *e){if(e)[self record:[@"maintenance_" stringByAppendingString:stage] passed:NO detail:e.localizedDescription];else run();}];
 }
 - (void)save{
  NSString *path=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"ish-regression.json"];
@@ -41,17 +153,18 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
 }
 - (void)run:(NSUInteger)i{
  NSArray *cases=@[
+  @{@"session":@"proof-one",@"command":@"test -f $DYLIX_SKILLS_DIR/theos-logos/SKILL.md; ls $DYLIX_SKILLS_DIR; if echo bad > $DYLIX_SKILLS_DIR/WRONG 2>/dev/null; then echo WRITE_FAILED; else echo SKILLS_READ_ONLY; fi; if chmod 777 $DYLIX_SKILLS_DIR 2>/dev/null; then echo CHMOD_FAILED; else echo SKILLS_CHMOD_BLOCKED; fi",@"expect":@"SKILLS_READ_ONLY",@"also":@"SKILLS_CHMOD_BLOCKED"},
   @{@"session":@"proof-one",@"command":@"uname -m; printf 'DYLIX_REAL_LINUX\\n'; pwd",@"expect":@"aarch64"},
   @{@"session":@"proof-one",@"command":@"printf 'persisted' > /workspace/persist.txt; cat /workspace/persist.txt; exit 7",@"expect":@"persisted",@"exit":@7},
-  @{@"session":@"proof-two",@"command":@"test ! -f /workspace/persist.txt && echo SESSION_ISOLATED; cd /; cd ../../..; pwd; ln -sf /bin/sh /tmp/sh; /tmp/sh -c 'echo SYMLINK_OK'",@"expect":@"SESSION_ISOLATED",@"also":@"SYMLINK_OK"},
+  @{@"session":@"proof-two",@"command":@"test -f /workspace/persist.txt && echo ENVIRONMENT_SHARED; cd /; cd ../../..; pwd; ln -sf /bin/sh /tmp/sh; /tmp/sh -c 'echo SYMLINK_OK'",@"expect":@"ENVIRONMENT_SHARED",@"also":@"SYMLINK_OK"},
   @{@"session":@"proof-one",@"command":@"cat /workspace/persist.txt; cat /../../../../etc/alpine-release; mkdir -p /tmp/mnt; mount -t realfs / /tmp/mnt; echo MOUNT_STATUS=$?",@"expect":@"MOUNT_STATUS=1"},
   @{@"session":@"proof-one",@"command":@"printf 'before-timeout\\n'; sleep 20; echo BAD_TIMEOUT",@"expect":@"before-timeout",@"timeout":@1},
   @{@"session":@"proof-one",@"command":@"printf 'after-timeout\\n'; cat /workspace/persist.txt",@"expect":@"after-timeout"},
-  @{@"session":@"proof-two",@"command":@"ln -sf /../../sessions /tmp/escape; test ! -e /tmp/escape && test ! -d /sessions && test ! -f /workspace/persist.txt && echo NO_CROSS_SESSION",@"expect":@"NO_CROSS_SESSION"},
+  @{@"session":@"proof-two",@"command":@"ln -sf /../../sessions /tmp/escape; test ! -e /tmp/escape && test ! -d /sessions && test -f /workspace/persist.txt && echo NO_HOST_ESCAPE",@"expect":@"NO_HOST_ESCAPE"},
   @{@"session":@"proof-one",@"command":@"i=0; while [ $i -lt 8 ]; do /bin/sh -c 'printf x'; i=$((i+1)); done; printf ' REPEATED_FORK_OK\\n'; printf '中文输出\\n'",@"expect":@"REPEATED_FORK_OK",@"also":@"中文输出"},
   @{@"session":@"proof-one",@"command":@"yes bounded | head -c 140000; echo OUTPUT_END",@"expect":@"OUTPUT_END",@"truncated":@YES}
  ];
- if(i==cases.count){[self installPreviewRuntime];return;}
+ if(i==cases.count){[self skillSmoke:^{[self installPreviewRuntime];}];return;}
  NSDictionary *c=cases[i];[[TFAIISHRuntime shared]execute:c[@"command"] session:c[@"session"] timeout:c[@"timeout"]?[c[@"timeout"] doubleValue]:20 output:nil completion:^(NSDictionary *r,NSError *e){
   BOOL passed=!e&&[r[@"output"] containsString:c[@"expect"]]&&(!c[@"exit"]||[r[@"exit_code"] isEqual:c[@"exit"]])&&(!c[@"also"]||[r[@"output"] containsString:c[@"also"]]);
   if(c[@"truncated"])passed=passed&&[r[@"truncated"] boolValue]&&[r[@"output"] lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=65536;
@@ -101,7 +214,7 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
 }
 - (void)rejectFileCase:(NSUInteger)i path:(NSString *)path{
  NSArray *paths=@[@"/../../etc/passwd",@"/tmp/sh",@"/dev/null",@"/workspace"];
- if(i==paths.count){[TFAIISHRuntime.shared fileOperation:@"read" path:path arguments:@{} session:@"proof-two" completion:^(NSDictionary *r,NSError *e){[self record:@"vfs_cross_session_read_rejected" passed:e&&!r detail:nil];[self advancedFiles];}];return;}
+ if(i==paths.count){[TFAIISHRuntime.shared fileOperation:@"read" path:path arguments:@{} session:@"proof-two" completion:^(NSDictionary *r,NSError *e){[self record:@"vfs_cross_session_read_shared" passed:!e&&[r[@"content"] isEqual:@"changed"] detail:nil];[self advancedFiles];}];return;}
  [TFAIISHRuntime.shared fileOperation:@"read" path:paths[i] arguments:@{} session:@"proof-two" completion:^(NSDictionary *r,NSError *e){[self record:[@"vfs_reject_" stringByAppendingString:paths[i]] passed:e&&!r detail:nil];[self rejectFileCase:i+1 path:path];}];
 }
 - (void)advancedFiles{
@@ -152,7 +265,7 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
  [store discover:identifier session:@"proof-one" launchApproved:NO completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_start_requires_native_confirmation" passed:e&&!r detail:nil];
  [store discover:identifier session:@"proof-one" launchApproved:YES completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_initialize_notification_list_chain" passed:!e&&[r[@"tools"] count]==1 detail:e.localizedDescription];if(e){[store remove:identifier];[self importFixture];return;}
   NSError *allowError=nil;BOOL allowed=[store setAllowed:YES tool:@"lookup" server:identifier error:&allowError];[store setEnabled:YES server:identifier session:@"proof-one"];NSArray *schemas=[store schemas:@"proof-one"];[self record:@"mcp_explicit_readonly_allowlist_schema" passed:allowed&&schemas.count==1 detail:allowError.localizedDescription];[store setEnabled:YES server:identifier session:@"proof-two"];[self record:@"mcp_schema_requires_session_transport" passed:![store schemas:@"proof-two"].count detail:nil];
-  [store call:schemas.firstObject[@"name"]?:@"missing" arguments:@{@"query":@"test"} session:@"proof-one" completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_registered_tool_real_guest_call" passed:!e&&[r[@"content"] count]==1 detail:e.localizedDescription];[store setEnabled:NO server:identifier session:@"proof-one"];[self record:@"mcp_disable_revokes_schema" passed:![store schemas:@"proof-one"].count detail:nil];[store remove:identifier];[self stdioTimeoutTest];}];
+  [store call:schemas.firstObject[@"name"]?:@"missing" arguments:@{@"query":@"test"} session:@"proof-one" completion:^(NSDictionary *r,NSError *e){[self record:@"mcp_registered_tool_real_guest_call" passed:!e&&[r[@"content"] count]==1 detail:e.localizedDescription];NSArray *audit=[store auditForSession:@"proof-one"];BOOL audited=NO;for(NSDictionary *row in audit)if([row[@"method"] isEqual:@"tools/call"]&&[row[@"success"] boolValue])audited=YES;[self record:@"mcp_stdio_metadata_audit" passed:audited&&![audit.description containsString:@"fixture-env-value"]&&![audit.description containsString:@"query"]&&![store auditForSession:@"unrelated"].count detail:nil];[store setEnabled:NO server:identifier session:@"proof-one"];[self record:@"mcp_disable_revokes_schema" passed:![store schemas:@"proof-one"].count detail:nil];[store remove:identifier];[self stdioTimeoutTest];}];
  }];
  }];
 }
@@ -293,7 +406,17 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
 }
 - (void)packageTools{
  if(![NSProcessInfo.processInfo.arguments containsObject:@"--test-packages"]){[self networkTest];return;}
- [TFAIISHRuntime.shared execute:@"python3 -c 'import json,hashlib;print(\"PYTHON_REAL_OK\",json.dumps({\"ok\":True}))' && node -e 'console.log(\"NODE_REAL_OK\",process.arch)' && npm --version && git --version && curl --version | head -1 && file /bin/busybox" session:@"proof-one" timeout:600 output:nil completion:^(NSDictionary *r,NSError *e){[self record:@"python_node_and_developer_packages" passed:!e&&[r[@"exit_code"] intValue]==0&&[r[@"output"] containsString:@"PYTHON_REAL_OK"]&&[r[@"output"] containsString:@"NODE_REAL_OK"] detail:r?:e.localizedDescription];[self networkTest];}];
+ [TFAIISHRuntime.shared execute:@"python3 -c 'import json,hashlib;print(\"PYTHON_REAL_OK\",json.dumps({\"ok\":True}))' && node -e 'console.log(\"NODE_REAL_OK\",process.arch)' && npm --version && git --version && curl --version | head -1 && file /bin/busybox" session:@"proof-one" timeout:600 output:nil completion:^(NSDictionary *r,NSError *e){[self record:@"python_node_and_developer_packages" passed:!e&&[r[@"exit_code"] intValue]==0&&[r[@"output"] containsString:@"PYTHON_REAL_OK"]&&[r[@"output"] containsString:@"NODE_REAL_OK"] detail:r?:e.localizedDescription];[self machOTools228];}];
+}
+
+- (void)machOTools228{
+ [TFAIISHRuntime.shared importFile:[NSBundle.mainBundle URLForResource:@"reverse-fixture" withExtension:@"dylib"] name:@"fixture-arm64.dylib" session:@"proof-one" completion:^(NSDictionary *first,NSError *error){
+ [TFAIISHRuntime.shared importFile:[NSBundle.mainBundle URLForResource:@"reverse-arm64e" withExtension:@"dylib"] name:@"fixture-arm64e.dylib" session:@"proof-one" completion:^(NSDictionary *second,NSError *error){
+ [TFAIISHRuntime.shared importFile:[NSBundle.mainBundle URLForResource:@"MachOSignatureVerify" withExtension:@"py"] name:@"verify-signature.py" session:@"proof-one" completion:^(NSDictionary *verify,NSError *error){
+ if(!first||!second||!verify){[self record:@"macho228_fixtures" passed:NO detail:error.localizedDescription];[self networkTest];return;}
+ NSString *command=[NSString stringWithFormat:@"set -e; for t in dpkg-deb lipo otool ldid nm; do command -v \"$t\"; done; lipo -create '%@' '%@' -output /workspace/macho228-fat.dylib; lipo -archs /workspace/macho228-fat.dylib; lipo /workspace/macho228-fat.dylib -thin arm64e -output /workspace/macho228-signed.dylib; otool -hv /workspace/macho228-signed.dylib; nm -g /workspace/macho228-signed.dylib | grep dylix_fixture_add; ldid -r /workspace/macho228-signed.dylib; python3 '%@' /workspace/macho228-signed.dylib --unsigned; ldid -S /workspace/macho228-signed.dylib; python3 '%@' /workspace/macho228-signed.dylib; dpkg-deb --version | head -1; mkdir -p /workspace/deb-smoke/DEBIAN; tar -xzf /workspace/deb-smoke/control.tar.gz -C /workspace/deb-smoke/DEBIAN; dpkg-deb -b /workspace/deb-smoke /workspace/macho228-test.deb; dpkg-deb -x /workspace/macho228-test.deb /workspace/macho228-deb; cat /workspace/macho228-deb/usr/share/dylix/smoke.txt; test ! -e /workspace/MAINTAINER_RAN; python3 '%@' --vfs; printf 'MACHO228_ALL_OK\\n'",first[@"path"],second[@"path"],verify[@"path"],verify[@"path"],verify[@"path"]];
+ [TFAIISHRuntime.shared execute:command session:@"proof-one" timeout:600 output:nil completion:^(NSDictionary *r,NSError *e){NSString *text=r[@"output"];[self record:@"macho228_lipo_otool_nm_ldid_dpkg_real_guest" passed:!e&&[r[@"exit_code"] intValue]==0&&[text containsString:@"CODEDIRECTORY_HASHES_VERIFIED"]&&[text containsString:@"arm64e"]&&[text containsString:@"MACHO228_ALL_OK"] detail:r?:e.localizedDescription];[self networkTest];}];
+ }];}];}];
 }
 
 - (void)networkTest{
@@ -328,10 +451,18 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC),dispatch_get_main_queue(),^{
    NSString *output=[[NSString alloc]initWithData:bytes encoding:NSUTF8StringEncoding]?:@"";
    BOOL ok=!e&&[output containsString:@"PTY_INTERACTIVE_OK"];
+   NSRegularExpression *prompt=[NSRegularExpression regularExpressionWithPattern:@"root@[^\\r\\n: ]+:/workspace[^\\r\\n]* # " options:0 error:nil];
+   [self.results addObject:@{@"test":@"interactive_identity_prompt",@"passed":@(!e&&[prompt firstMatchInString:output options:0 range:NSMakeRange(0,output.length)]!=nil),@"output":output}];
    [self.results addObject:@{@"test":@"interactive_pty",@"passed":@(ok),@"output":output,@"error":e.localizedDescription?:@""}];
    [NSNotificationCenter.defaultCenter removeObserver:observer];[self save];[self render];
   });
  }];
+}
+- (void)verifyToolbar:(WKWebView *)web page:(UIViewController *)page completion:(void (^)(void))completion{
+ NSMutableArray<UIView *> *queue=[NSMutableArray arrayWithObject:page.view];NSUInteger count=0;BOOL touch=YES;
+ while(queue.count){UIView *v=queue.lastObject;[queue removeLastObject];[queue addObjectsFromArray:v.subviews];if([v.accessibilityIdentifier hasPrefix:@"terminal.key."]){count++;touch&=v.bounds.size.height>=44&&v.bounds.size.width>=44;}}
+ [self.results addObject:@{@"test":@"toolbar_native_keys_and_touch_targets",@"passed":@(count==28&&touch),@"count":@(count)}];
+ [web evaluateJavaScript:@"(()=>{const original=send,got=[];send=(t,v)=>{if(t==='input')got.push(v);};try{const cases=[['escape','\\x1b'],['tab','\\t'],['enter','\\r'],['up','\\x1b[A'],['down','\\x1b[B'],['left','\\x1b[D'],['right','\\x1b[C'],['home','\\x1b[H'],['end','\\x1b[F'],['pageUp','\\x1b[5~'],['pageDown','\\x1b[6~'],['delete','\\x1b[3~'],['backspace','\\x7f'],['interrupt','\\x03'],['eof','\\x04'],['suspend','\\x1a'],['clear','\\x0c'],['/','/'],['|','|']];for(const [k,v] of cases){dylixKey(k);if(got.pop()!==v)throw Error(k);}dylixKey('ctrl');input('c');if(got.pop()!=='\\x03'||ctrl)throw Error('ctrl');dylixKey('alt');input('x');if(got.pop()!=='\\x1bx'||alt)throw Error('alt');dylixKey('ctrl');dylixKey('left');if(got.pop()!=='\\x1b[1;5D')throw Error('ctrl-left');dylixKey('alt');dylixKey('pageUp');if(got.pop()!=='\\x1b[5;3~')throw Error('alt-pageup');dylixKey('ctrl');dylixPaste('safe text');if(got.pop()!=='safe text'||ctrl||alt)throw Error('paste');return true;}finally{resetModifiers();send=original;}})()" completionHandler:^(id result,NSError *error){[self.results addObject:@{@"test":@"toolbar_webkit_control_sequences",@"passed":@([result boolValue]&&!error),@"error":error.localizedDescription?:@""}];completion();}];
 }
 - (void)render{
  UIViewController *page=TFAIISHTerminalController(@"proof-one");self.window.rootViewController=[[UINavigationController alloc]initWithRootViewController:page];
@@ -340,7 +471,7 @@ UIViewController *TFAIApprovalController(NSDictionary *plan,void(^decision)(BOOL
   [web evaluateJavaScript:@"send('input', \"printf 'RENDERED_PTY_OK\\\\n'\\r\")" completionHandler:^(id r,NSError *error){
    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC),dispatch_get_main_queue(),^{
     [web evaluateJavaScript:@"Array.from({length:terminal.buffer.active.length},(_,i)=>terminal.buffer.active.getLine(i).translateToString(true)).includes('RENDERED_PTY_OK')" completionHandler:^(id ok,NSError *e){
-     [self.results addObject:@{@"test":@"terminal_webview_roundtrip",@"passed":@([ok boolValue]&&!e&&!error&&[[TFAIISHRuntime.shared status:@"proof-one"][@"terminalRunning"] boolValue]),@"error":e.localizedDescription?:error.localizedDescription?:@""}];[self save];NSLog(@"ISH_TEST_FINISHED %@",self.results);
+     [self verifyToolbar:web page:page completion:^{[self.results addObject:@{@"test":@"terminal_webview_roundtrip",@"passed":@([ok boolValue]&&!e&&!error&&[[TFAIISHRuntime.shared status:@"proof-one"][@"terminalRunning"] boolValue]),@"error":e.localizedDescription?:error.localizedDescription?:@""}];[self save];NSLog(@"ISH_TEST_FINISHED %@",self.results);}];
     }];
    });
   }];

@@ -2,25 +2,28 @@
 NSString *const TFAIPersonaDidChangeNotification=@"TFAIPersonaDidChange";
 NSString *const TFAIPersonaBeginMarker=@"<!-- dylix-persona:begin -->";
 NSString *const TFAIPersonaEndMarker=@"<!-- dylix-persona:end -->";
+NSArray *TFAIPersonasSorted(NSArray *items){NSMutableArray *pins=[NSMutableArray new],*rest=[NSMutableArray new];for(TFAIPersona *p in items)[p.pinned?pins:rest addObject:p];[pins sortUsingComparator:^NSComparisonResult(TFAIPersona *a,TFAIPersona *b){return a.updatedAt>b.updatedAt?NSOrderedAscending:a.updatedAt<b.updatedAt?NSOrderedDescending:NSOrderedSame;}];[pins addObjectsFromArray:rest];return pins.copy;}
 static NSError *PersonaError(NSString *text){return [NSError errorWithDomain:@"Dylix.Persona" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
 static BOOL ModeValid(id mode){return [mode isKindOfClass:NSString.class]&&[@[@"prepend",@"append",@"replace"] containsObject:mode];}
 static BOOL StringArrayValid(id value){if(value==nil)return YES;if(![value isKindOfClass:NSArray.class])return NO;for(id item in value)if(![item isKindOfClass:NSString.class])return NO;return YES;}
-// New metadata is additive. Keep the version-2 envelope readable by build166.
-static NSNumber *PersonaStorageVersion(void){return @2;}
+// Additive v3 metadata; v1/v2 readers migrate with a private snapshot.
+static NSNumber *PersonaStorageVersion(void){return @3;}
 NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?@"前置":[mode isEqual:@"replace"]?@"替换":@"后置";}
 @implementation TFAIPersona
 - (instancetype)initWithJSON:(NSDictionary *)j {
  if(![j isKindOfClass:NSDictionary.class]||![j[@"id"] isKindOfClass:NSString.class]||![[NSUUID alloc]initWithUUIDString:j[@"id"]]||![j[@"name"] isKindOfClass:NSString.class]||![j[@"body"] isKindOfClass:NSString.class]||!ModeValid(j[@"mode"])||![j[@"updatedAt"] isKindOfClass:NSNumber.class]||![j[@"isBuiltin"] isKindOfClass:NSNumber.class])return nil;
  for(NSString *key in @[@"builtinKey",@"summary",@"replyPrefix",@"selfCheckCommand",@"selfCheckReply",@"generation"])if(j[key]&&![j[key] isKindOfClass:NSString.class])return nil;if(!StringArrayValid(j[@"modelPatterns"])||!StringArrayValid(j[@"providerIDs"])||(j[@"matchPriority"]&&![j[@"matchPriority"] isKindOfClass:NSNumber.class]))return nil;
- if((self=[super init])){_identifier=[j[@"id"] copy];_name=[j[@"name"] copy];_body=[j[@"body"] copy];_mode=[j[@"mode"] copy];_isBuiltin=[j[@"isBuiltin"] boolValue];_updatedAt=[j[@"updatedAt"] doubleValue];_builtinKey=[j[@"builtinKey"] copy]?:@"";_summary=[j[@"summary"] copy]?:@"";_replyPrefix=[j[@"replyPrefix"] copy]?:@"";_selfCheckCommand=[j[@"selfCheckCommand"] copy]?:@"";_selfCheckReply=[j[@"selfCheckReply"] copy]?:@"";_generation=[j[@"generation"] copy]?:@"";_modelPatterns=[j[@"modelPatterns"] copy]?:@[];_providerIDs=[j[@"providerIDs"] copy]?:@[];_matchPriority=[j[@"matchPriority"] integerValue];}return self;
+ if(j[@"pinned"]&&![j[@"pinned"] isKindOfClass:NSNumber.class])return nil;
+ if((self=[super init])){_pinned=[j[@"pinned"] boolValue];_identifier=[j[@"id"] copy];_name=[j[@"name"] copy];_body=[j[@"body"] copy];_mode=[j[@"mode"] copy];_isBuiltin=[j[@"isBuiltin"] boolValue];_updatedAt=[j[@"updatedAt"] doubleValue];_builtinKey=[j[@"builtinKey"] copy]?:@"";_summary=[j[@"summary"] copy]?:@"";_replyPrefix=[j[@"replyPrefix"] copy]?:@"";_selfCheckCommand=[j[@"selfCheckCommand"] copy]?:@"";_selfCheckReply=[j[@"selfCheckReply"] copy]?:@"";_generation=[j[@"generation"] copy]?:@"";_modelPatterns=[j[@"modelPatterns"] copy]?:@[];_providerIDs=[j[@"providerIDs"] copy]?:@[];_matchPriority=[j[@"matchPriority"] integerValue];}return self;
 }
 - (NSUInteger)byteCount{return [self.body lengthOfBytesUsingEncoding:NSUTF8StringEncoding];}
-- (NSDictionary *)JSON{return @{@"id":self.identifier,@"name":self.name,@"body":self.body,@"mode":self.mode,@"isBuiltin":@(self.isBuiltin),@"updatedAt":@(self.updatedAt),@"builtinKey":self.builtinKey,@"summary":self.summary,@"replyPrefix":self.replyPrefix,@"selfCheckCommand":self.selfCheckCommand,@"selfCheckReply":self.selfCheckReply,@"generation":self.generation,@"modelPatterns":self.modelPatterns,@"providerIDs":self.providerIDs,@"matchPriority":@(self.matchPriority)};}
+- (NSDictionary *)JSON{return @{@"pinned":@(self.pinned),@"id":self.identifier,@"name":self.name,@"body":self.body,@"mode":self.mode,@"isBuiltin":@(self.isBuiltin),@"updatedAt":@(self.updatedAt),@"builtinKey":self.builtinKey,@"summary":self.summary,@"replyPrefix":self.replyPrefix,@"selfCheckCommand":self.selfCheckCommand,@"selfCheckReply":self.selfCheckReply,@"generation":self.generation,@"modelPatterns":self.modelPatterns,@"providerIDs":self.providerIDs,@"matchPriority":@(self.matchPriority)};}
 @end
 @interface TFAIPersonaStore ()
 @property NSURL *url;
 @property NSRecursiveLock *lock;
 @property NSDictionary *state,*catalog;
+@property NSArray *cachedPersonas;
 @property(nonatomic,readwrite) NSError *loadError;
 - (BOOL)backupBeforeMigration:(NSError **)error;
 @end
@@ -49,7 +52,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
    }
   }
   if(!_loadError){NSMutableArray *rows=[_state[@"personas"] mutableCopy];NSNumber *catalogVersion=_catalog[@"catalogVersion"]?:@0;BOOL catalogUpgrade=[catalogVersion integerValue]>[_state[@"catalogVersion"] integerValue];
-   for(NSDictionary *p in _catalog[@"personas"]){NSUInteger index=NSNotFound;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:p[@"id"]]){index=i;break;}if(index==NSNotFound){if(![_state[@"hiddenBuiltins"] containsObject:p[@"id"]]){[rows addObject:p];migration=YES;}}else if(catalogUpgrade&&[rows[index][@"isBuiltin"] boolValue]&&[rows[index][@"updatedAt"] doubleValue]==0&&![_state[@"hiddenBuiltins"] containsObject:p[@"id"]]){rows[index]=p;migration=YES;}}
+   for(NSDictionary *p in _catalog[@"personas"]){NSUInteger index=NSNotFound;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:p[@"id"]]){index=i;break;}if(index==NSNotFound){if(![_state[@"hiddenBuiltins"] containsObject:p[@"id"]]){[rows addObject:p];migration=YES;}}else if(catalogUpgrade&&[rows[index][@"isBuiltin"] boolValue]&&[rows[index][@"updatedAt"] doubleValue]==0&&![_state[@"hiddenBuiltins"] containsObject:p[@"id"]]){NSMutableDictionary *fresh=[p mutableCopy];for(NSString *key in @[@"pinned"])if(rows[index][key])fresh[key]=rows[index][key];rows[index]=fresh;migration=YES;}}
    // Catalog upgrades refresh untouched builtins, but never delete legacy records,
    // overwrite user-edited rows, or clear the current selection.
    if(catalogUpgrade)migration=YES;
@@ -60,7 +63,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
 - (NSDictionary *)snapshot{[self.lock lock];NSMutableDictionary *copy=[self.state mutableCopy];copy[@"tailBody"]=self.catalog[@"tailBody"]?:@"";copy[@"prefixTemplate"]=self.catalog[@"prefixTemplate"]?:@"## 回复前缀约定\n每条回复以以下字符串开头：\n";[self.lock unlock];return copy.copy;}
 - (BOOL)enabled{return [[self snapshot][@"enabled"] boolValue];}
 - (NSString *)activeID{id value=[self snapshot][@"activeID"];return [value isKindOfClass:NSString.class]?value:nil;}
-- (NSArray *)personas{NSMutableArray *items=[NSMutableArray new];for(NSDictionary *row in [self snapshot][@"personas"]){TFAIPersona *p=[[TFAIPersona alloc]initWithJSON:row];if(p)[items addObject:p];}return items.copy;}
+- (NSArray *)personas{[self.lock lock];if(!self.cachedPersonas){NSMutableArray *items=[NSMutableArray new];for(NSDictionary *row in self.state[@"personas"]){TFAIPersona *p=[[TFAIPersona alloc]initWithJSON:row];if(p)[items addObject:p];}self.cachedPersonas=items.copy;}NSArray *result=self.cachedPersonas;[self.lock unlock];return result;}
 - (NSArray *)builtins{NSMutableArray *items=[NSMutableArray new];for(TFAIPersona *p in self.personas)if(p.isBuiltin)[items addObject:p];return items.copy;}
 - (BOOL)backupBeforeMigration:(NSError **)error {
  NSFileManager *fm=NSFileManager.defaultManager;NSURL *folder=[[self.url URLByDeletingLastPathComponent] URLByAppendingPathComponent:@"MigrationBackups" isDirectory:YES];
@@ -73,7 +76,7 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
 - (BOOL)commit:(NSDictionary *)next error:(NSError **)error {
  if(self.loadError){if(error)*error=self.loadError;return NO;}NSMutableDictionary *write=[next mutableCopy];write[@"schemaVersion"]=PersonaStorageVersion();NSError *e=nil;NSURL *folder=[self.url URLByDeletingLastPathComponent];BOOL ok=[NSFileManager.defaultManager createDirectoryAtURL:folder withIntermediateDirectories:YES attributes:nil error:&e];
  if(ok){[folder setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];NSData *data=[NSJSONSerialization dataWithJSONObject:write options:NSJSONWritingSortedKeys|NSJSONWritingPrettyPrinted error:&e];ok=data&&[data writeToURL:self.url options:NSDataWritingAtomic error:&e];}
- if(!ok){if(error)*error=e?:PersonaError(@"保存人设失败。");return NO;}self.state=write.copy;dispatch_async(dispatch_get_main_queue(),^{[NSNotificationCenter.defaultCenter postNotificationName:TFAIPersonaDidChangeNotification object:self];});return YES;
+ if(!ok){if(error)*error=e?:PersonaError(@"保存人设失败。");return NO;}self.state=write.copy;self.cachedPersonas=nil;dispatch_async(dispatch_get_main_queue(),^{[NSNotificationCenter.defaultCenter postNotificationName:TFAIPersonaDidChangeNotification object:self];});return YES;
 }
 - (BOOL)setEnabled:(BOOL)enabled error:(NSError **)error{[self.lock lock];NSMutableDictionary *s=[self.state mutableCopy];s[@"enabled"]=@(enabled);BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;}
 - (BOOL)setMatchingMode:(NSString *)mode error:(NSError **)error{if(![@[@"auto",@"manual"] containsObject:mode]){if(error)*error=PersonaError(@"匹配方式无效。");return NO;}[self.lock lock];NSMutableDictionary *s=[self.state mutableCopy];s[@"matchingMode"]=mode;BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;}
@@ -90,14 +93,18 @@ NSString *TFAIPersonaModeLabel(NSString *mode){return [mode isEqual:@"prepend"]?
  for(NSString *v in @[body,summary?:@"",prefix?:@"",command?:@"",reply?:@""])for(NSString *marker in @[TFAIPersonaBeginMarker,TFAIPersonaEndMarker,@"<!-- dylix-persona-tail:begin -->",@"<!-- dylix-persona-tail:end -->"])if([v containsString:marker]){if(error)*error=PersonaError(@"内容包含人设保留标记，请移除 begin / end 标记后保存。");return NO;}
  [self.lock lock];NSMutableArray *rows=[self.state[@"personas"] mutableCopy];NSUInteger index=NSNotFound;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:identifier]){index=i;break;}
  if(identifier&&index==NSNotFound){if(error)*error=PersonaError(@"人设已被删除，请重新打开列表。");[self.lock unlock];return NO;}
- NSDictionary *old=index==NSNotFound?@{}:rows[index];NSDictionary *row=@{@"id":identifier?:NSUUID.UUID.UUIDString,@"name":name,@"body":body,@"mode":mode,@"isBuiltin":old[@"isBuiltin"]?:@NO,@"builtinKey":old[@"builtinKey"]?:@"",@"updatedAt":@(NSDate.date.timeIntervalSince1970),@"summary":summary?:@"",@"replyPrefix":prefix?:@"",@"selfCheckCommand":command?:@"",@"selfCheckReply":reply?:@"",@"generation":old[@"generation"]?:@"",@"modelPatterns":old[@"modelPatterns"]?:@[],@"providerIDs":old[@"providerIDs"]?:@[],@"matchPriority":old[@"matchPriority"]?:@0};
+ NSDictionary *old=index==NSNotFound?@{}:rows[index];NSDictionary *row=@{@"pinned":old[@"pinned"]?:@NO,@"id":identifier?:NSUUID.UUID.UUIDString,@"name":name,@"body":body,@"mode":mode,@"isBuiltin":old[@"isBuiltin"]?:@NO,@"builtinKey":old[@"builtinKey"]?:@"",@"updatedAt":@(NSDate.date.timeIntervalSince1970),@"summary":summary?:@"",@"replyPrefix":prefix?:@"",@"selfCheckCommand":command?:@"",@"selfCheckReply":reply?:@"",@"generation":old[@"generation"]?:@"",@"modelPatterns":old[@"modelPatterns"]?:@[],@"providerIDs":old[@"providerIDs"]?:@[],@"matchPriority":old[@"matchPriority"]?:@0};
  if(index==NSNotFound)[rows addObject:row];else rows[index]=row;NSMutableDictionary *s=[self.state mutableCopy];s[@"personas"]=rows.copy;BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;
 }
+- (BOOL)updateLocalFields:(NSDictionary *)fields identifier:(NSString *)identifier error:(NSError **)error {
+ [self.lock lock];NSMutableArray *rows=[self.state[@"personas"] mutableCopy];NSUInteger i=[rows indexOfObjectPassingTest:^BOOL(NSDictionary *row,NSUInteger i,BOOL *stop){return [row[@"id"] isEqual:identifier];}];if(i==NSNotFound){if(error)*error=PersonaError(@"人设已被删除，请重新打开列表。");[self.lock unlock];return NO;}NSMutableDictionary *row=[rows[i] mutableCopy];[row addEntriesFromDictionary:fields];rows[i]=row;NSMutableDictionary *next=[self.state mutableCopy];next[@"personas"]=rows;BOOL ok=[self commit:next error:error];[self.lock unlock];return ok;
+}
+- (BOOL)setPinned:(BOOL)pinned identifier:(NSString *)identifier error:(NSError **)error{return [self updateLocalFields:@{@"pinned":@(pinned)} identifier:identifier error:error];}
 - (BOOL)remove:(NSString *)identifier error:(NSError **)error{[self.lock lock];NSMutableArray *rows=[NSMutableArray new],*hidden=[self.state[@"hiddenBuiltins"] mutableCopy];for(NSDictionary *row in self.state[@"personas"]){if(![row[@"id"] isEqual:identifier])[rows addObject:row];else if([row[@"isBuiltin"] boolValue]&&![hidden containsObject:identifier])[hidden addObject:identifier];}NSMutableDictionary *s=[self.state mutableCopy];s[@"personas"]=rows.copy;s[@"hiddenBuiltins"]=hidden.copy;if([s[@"activeID"] isEqual:identifier])s[@"activeID"]=NSNull.null;BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;}
 - (BOOL)resetBuiltin:(NSString *)identifier error:(NSError **)error {
  [self.lock lock];NSDictionary *original=nil;for(NSDictionary *p in self.catalog[@"personas"])if([p[@"id"] isEqual:identifier])original=p;
  if(!original){if(error)*error=PersonaError(@"没有对应的内置原文。");[self.lock unlock];return NO;}
- NSMutableArray *rows=[self.state[@"personas"] mutableCopy],*hidden=[self.state[@"hiddenBuiltins"] mutableCopy];BOOL found=NO;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:identifier]){rows[i]=original;found=YES;break;}if(!found)[rows addObject:original];[hidden removeObject:identifier];NSMutableDictionary *s=[self.state mutableCopy];s[@"personas"]=rows.copy;s[@"hiddenBuiltins"]=hidden.copy;BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;
+ NSMutableArray *rows=[self.state[@"personas"] mutableCopy],*hidden=[self.state[@"hiddenBuiltins"] mutableCopy];BOOL found=NO;for(NSUInteger i=0;i<rows.count;i++)if([rows[i][@"id"] isEqual:identifier]){NSMutableDictionary *reset=[original mutableCopy];for(NSString *key in @[@"pinned"])if(rows[i][key])reset[key]=rows[i][key];rows[i]=reset;found=YES;break;}if(!found)[rows addObject:original];[hidden removeObject:identifier];NSMutableDictionary *s=[self.state mutableCopy];s[@"personas"]=rows.copy;s[@"hiddenBuiltins"]=hidden.copy;BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;
 }
 - (BOOL)restoreBuiltins:(NSError **)error {
  [self.lock lock];NSMutableArray *rows=[self.state[@"personas"] mutableCopy];NSMutableSet *ids=[NSMutableSet new];for(NSDictionary *p in rows)[ids addObject:p[@"id"]];for(NSDictionary *p in self.catalog[@"personas"])if(![ids containsObject:p[@"id"]])[rows addObject:p];NSMutableDictionary *s=[self.state mutableCopy];s[@"personas"]=rows.copy;s[@"hiddenBuiltins"]=@[];BOOL ok=[self commit:s error:error];[self.lock unlock];return ok;

@@ -4,8 +4,19 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 
-// 用于持有手势识别器的静态变量，防止重复添加
+// Keep independent recognizers: either three or four fingers can summon FLEX.
 static UILongPressGestureRecognizer *flex_threeFingerLongPressGesture = nil;
+static UILongPressGestureRecognizer *flex_fourFingerLongPressGesture = nil;
+@interface FLEXActivationGestureDelegate : NSObject <UIGestureRecognizerDelegate>
+@end
+@implementation FLEXActivationGestureDelegate
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gesture shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)other {
+    // The two FLEX shortcuts stay mutually exclusive, so one hold toggles once.
+    // Coexist with host/third-party recognizers instead of requiring their failure.
+    return other != flex_threeFingerLongPressGesture && other != flex_fourFingerLongPressGesture;
+}
+@end
+static FLEXActivationGestureDelegate *flex_activationGestureDelegate = nil;
 
 @implementation FLEXManager (ThreeFingerTap)
 
@@ -31,48 +42,34 @@ static UILongPressGestureRecognizer *flex_threeFingerLongPressGesture = nil;
         return;
     }
 
-    // 检查手势是否已添加到此窗口，以防止重复
-    for (UIGestureRecognizer *existingGesture in targetWindow.gestureRecognizers) {
-        if (existingGesture == flex_threeFingerLongPressGesture) {
-            // 确保手势在正确的视图上
-            if (existingGesture.view == targetWindow) {
-                 return; // 已添加
-            } else {
-                // 如果手势在错误的视图上，移除它
-                [existingGesture.view removeGestureRecognizer:existingGesture];
-                flex_threeFingerLongPressGesture = nil; // 将其置nil以便重新创建
-            }
-        }
+    if (!flex_activationGestureDelegate) {
+        flex_activationGestureDelegate = [FLEXActivationGestureDelegate new];
     }
-    
-    // 如果我们有一个旧的手势在不同的窗口上，移除它。
-    if (flex_threeFingerLongPressGesture && flex_threeFingerLongPressGesture.view != targetWindow) {
-        [flex_threeFingerLongPressGesture.view removeGestureRecognizer:flex_threeFingerLongPressGesture];
-        flex_threeFingerLongPressGesture = nil;
-    }
-
-
-    if (!flex_threeFingerLongPressGesture) {
-        flex_threeFingerLongPressGesture = [UILongPressGestureRecognizer flex_action:^(UIGestureRecognizer *gesture) {
-            if (gesture.state == UIGestureRecognizerStateBegan) {
-                if ([FLEXManager sharedManager]) {
+    for (NSNumber *touchCount in @[@3, @4]) {
+        UILongPressGestureRecognizer *recognizer = touchCount.unsignedIntegerValue == 3
+            ? flex_threeFingerLongPressGesture : flex_fourFingerLongPressGesture;
+        if (!recognizer) {
+            recognizer = [UILongPressGestureRecognizer flex_action:^(UIGestureRecognizer *gesture) {
+                if (gesture.state == UIGestureRecognizerStateBegan) {
                     [[FLEXManager sharedManager] toggleExplorer];
                 }
+            }];
+            recognizer.numberOfTouchesRequired = touchCount.unsignedIntegerValue;
+            recognizer.minimumPressDuration = 0.5;
+            recognizer.cancelsTouchesInView = NO;
+            recognizer.delaysTouchesBegan = NO;
+            recognizer.delaysTouchesEnded = NO;
+            recognizer.delegate = flex_activationGestureDelegate;
+            if (touchCount.unsignedIntegerValue == 3) {
+                flex_threeFingerLongPressGesture = recognizer;
+            } else {
+                flex_fourFingerLongPressGesture = recognizer;
             }
-        }];
-        
-        flex_threeFingerLongPressGesture.numberOfTouchesRequired = 3;
-        // 可选：如果默认的0.5秒不合适，可以设置最小按压时长
-        // flex_threeFingerLongPressGesture.minimumPressDuration = 0.8; // 例如0.8秒
-    }
-
-    // 确保手势未添加到其他视图
-    if (flex_threeFingerLongPressGesture.view && flex_threeFingerLongPressGesture.view != targetWindow) {
-        [flex_threeFingerLongPressGesture.view removeGestureRecognizer:flex_threeFingerLongPressGesture];
-    }
-    
-    if (flex_threeFingerLongPressGesture.view != targetWindow) {
-        [targetWindow addGestureRecognizer:flex_threeFingerLongPressGesture];
+        }
+        if (recognizer.view != targetWindow) {
+            [recognizer.view removeGestureRecognizer:recognizer];
+            [targetWindow addGestureRecognizer:recognizer];
+        }
     }
 }
 

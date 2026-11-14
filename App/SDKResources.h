@@ -6,3 +6,6 @@ NSString *TMCPrepareSDK(NSBundle *bundle, NSString *cacheRoot, NSError **error);
 // Supported embedded SDK IDs and project overrides; nil settings means validation failed.
 NSDictionary *TMCSDKBuildSettings(NSDictionary *config, NSUserDefaults *defaults, NSError **error);
 NSString *TMCPrepareSelectedSDK(NSBundle *bundle, NSString *cacheRoot, NSString *version, NSError **error);
+
+// Status only: never downloads or extracts on the UI thread.
+BOOL TMCSDKIsInstalled(NSBundle *bundle, NSString *cacheRoot, NSString *version);

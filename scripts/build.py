@@ -11,6 +11,7 @@ import hashlib
 import gzip
 import json
 from build_sdk import select_sdk
+from signing_profiles import load_profile, signing_plan
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
@@ -19,7 +20,19 @@ parser.add_argument('--sdk-root', type=pathlib.Path, help='Real platform SDK use
 parser.add_argument('--identity', default='-')
 parser.add_argument('--profile', type=pathlib.Path)
 parser.add_argument('--share-profile', type=pathlib.Path, help='Provisioning profile for the Share Extension')
+parser.add_argument('--activity-profile', type=pathlib.Path, help='Provisioning profile for the Live Activity Extension')
+parser.add_argument('--bundle-id', default='com.xuegao.theosmobilecompiler')
 args = parser.parse_args()
+profile_rights = None
+if not args.simulator and args.identity != '-':
+    if not all([args.profile, args.share_profile, args.activity_profile]):
+        parser.error('证书签名必须提供 --profile、--share-profile 和 --activity-profile；主应用和扩展需要分别匹配的描述文件。')
+    try:
+        profile_rights = signing_plan(args.bundle_id, *[load_profile(p) for p in [args.profile, args.share_profile, args.activity_profile]])
+    except (ValueError, subprocess.CalledProcessError, plistlib.InvalidFileException) as error:
+        parser.error(str(error))
+elif any([args.profile, args.share_profile, args.activity_profile]):
+    parser.error('描述文件仅用于真实证书签名，请同时设置 --identity；模拟器/待重签名包不嵌入描述文件。')
 platform = 'simulator' if args.simulator else 'device'
 sdk = 'iphonesimulator' if args.simulator else 'iphoneos'
 arch = 'x86_64' if args.simulator else 'arm64'
@@ -73,7 +86,9 @@ for sdk_version, sdk_root, sdk_stem in [
                 if path.is_file() and not any(part == '.DS_Store' or part == '__MACOSX' or part.startswith('._') for part in path.relative_to(sdk_root).parts):
                     archive.write(path, path.relative_to(sdk_root))
         sdk_temp.replace(sdk_cache)
-    shutil.copyfile(sdk_cache, app / (sdk_stem + '.zip'))
+    # SDK26 is an optional, pinned download. Keep 16.4 usable offline.
+    if sdk_version == '16.4':
+        shutil.copyfile(sdk_cache, app / (sdk_stem + '.zip'))
     (app / (sdk_stem + 'Resource.plist')).write_bytes(plistlib.dumps({
         'version': sdk_version,
         'sha256': hashlib.sha256(sdk_cache.read_bytes()).hexdigest(),
@@ -100,7 +115,10 @@ if ish_rootfs.exists():
             manifest=json.loads(index.read_text())
             if manifest.get('architecture')!='aarch64' or hashlib.sha256(kit.read_bytes()).hexdigest()!=manifest.get('sha256'):
                 raise SystemExit('Offline '+stem+' manifest/hash mismatch')
-    shutil.copytree(ish_rootfs, app / 'iSH', dirs_exist_ok=True)
+    shutil.copytree(ish_rootfs, app / 'iSH', dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns('developer-tools.tar', 'reverse-tools.tar', 'GuestTools'))
+from prepare_download_resources import prepare as prepare_optional_resources
+(app / 'DownloadResources.json').write_text(json.dumps(prepare_optional_resources(), ensure_ascii=False, indent=2))
 flex_source = ROOT / 'Resources/FLEXPlugin'
 flex_manifest = json.loads((flex_source / 'manifest.json').read_text(encoding='utf-8'))
 flex_dest = app / 'FLEXPlugin'
@@ -119,10 +137,10 @@ for asset in (app / 'RemoteWeb' / 'monaco').rglob('*'):
         asset.with_name(asset.name + '.gz').write_bytes(gzip.compress(asset.read_bytes(), compresslevel=6, mtime=0))
 
 info = {
-    'CFBundleExecutable': 'TheosMobileCompiler', 'CFBundleIdentifier': 'com.xuegao.theosmobilecompiler',
+    'CFBundleExecutable': 'TheosMobileCompiler', 'CFBundleIdentifier': args.bundle_id,
     'CFBundleName': 'Dylix', 'CFBundleDisplayName': 'Dylix',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.1', 'CFBundleVersion': '225',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.3', 'CFBundleVersion': '272', 'DylixEdition': 'opensource',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'Dylix Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'Dylix Incoming','CFBundleURLSchemes':['dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.xuegao.theosmobilecompiler.ai.processing'],
@@ -224,8 +242,8 @@ if args.simulator:
     # Keep the host macOS ad-hoc code signature free of restricted entitlements.
     simulated = ROOT / 'build' / 'simulator' / 'simulated-entitlements.plist'
     simulated.write_bytes(plistlib.dumps({
-        'application-identifier': 'TMCLOCAL01.com.xuegao.theosmobilecompiler',
-        'keychain-access-groups': ['TMCLOCAL01.com.xuegao.theosmobilecompiler'],
+        'application-identifier': 'TMCLOCAL01.' + args.bundle_id,
+        'keychain-access-groups': ['TMCLOCAL01.' + args.bundle_id],
     }))
     cmd.extend(['-Xlinker', '-sectcreate', '-Xlinker', '__TEXT', '-Xlinker', '__entitlements', '-Xlinker', str(simulated)])
 subprocess.run(cmd, check=True)
@@ -236,9 +254,9 @@ for name in names:
 share = app / 'PlugIns/TweakForgeShare.appex'
 share.mkdir(parents=True, exist_ok=True)
 share_info = {
- 'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':'com.xuegao.theosmobilecompiler.share',
+ 'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':args.bundle_id + '.share',
  'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'Dylix','CFBundlePackageType':'XPC!',
- 'CFBundleShortVersionString':'1.1.1','CFBundleVersion':info['CFBundleVersion'],
+ 'CFBundleShortVersionString':'1.1.3','CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
  'DTSDKName':info['DTSDKName'],'DTPlatformVersion':info['DTPlatformVersion'],
@@ -250,20 +268,30 @@ share_info = {
 share_cmd=['xcrun','--sdk',sdk,'clang','-arch',arch,'-isysroot',sysroot,
  '-mios-simulator-version-min=15.0' if args.simulator else '-miphoneos-version-min=15.0',
  '-fobjc-arc','-fapplication-extension','-framework','UIKit','-framework','Foundation','-framework','UniformTypeIdentifiers',
- '-Wl,-e,_NSExtensionMain',str(ROOT / 'ShareExtension/ShareViewController.m'),str(ROOT / 'ShareExtension/TFShareLauncher.m'),str(ROOT / 'App/Incoming/TFShareTransfer.m'),str(ROOT / 'App/Incoming/TFShareGroups.m'),'-o',str(share / 'TweakForgeShare')]
+ '-Wl,-e,_NSExtensionMain',str(ROOT / 'ShareExtension/ShareViewController.m'),str(ROOT / 'ShareExtension/TFShareLauncher.m'),str(ROOT / 'ShareExtension/TFShareFileProvider.m'),str(ROOT / 'ShareExtension/TFShareFolderArchive.m'),'-larchive',str(ROOT / 'App/Incoming/TFShareTransfer.m'),str(ROOT / 'App/Incoming/TFShareGroups.m'),'-o',str(share / 'TweakForgeShare')]
 if args.sdk_root:
     share_cmd.append('-F' + str(pathlib.Path(sysroot) / 'System/Library/SubFrameworks'))
 if args.share_profile:
     shutil.copy2(args.share_profile, share / 'embedded.mobileprovision')
 subprocess.run(share_cmd,check=True)
 share_entitlements=ROOT / 'build' / platform / 'share-entitlements.plist'
-share_entitlements.write_bytes(plistlib.dumps({'com.apple.security.application-groups':['group.com.xuegao.tweakforge.share']}))
+share_entitlements.write_bytes(plistlib.dumps(profile_rights[1] if profile_rights else {'com.apple.security.application-groups':['group.com.xuegao.tweakforge.share']}))
 sign_flags=[] if args.simulator else ['--entitlements',str(share_entitlements)]
 subprocess.run(['codesign','--force','--sign',args.identity,*sign_flags,str(share)],check=True)
-subprocess.run(['python3',str(ROOT / 'scripts/build_live_activity.py'),'--app',str(app),'--build',info['CFBundleVersion'],'--identity',args.identity]+(['--simulator'] if args.simulator else []),check=True)
-subprocess.run(['codesign','--force','--sign',args.identity,*sign_flags,str(app)],check=True)
+activity_flags=[]
+main_sign_flags=sign_flags
+if profile_rights:
+    main_rights=ROOT / 'build' / platform / 'main-entitlements.plist'
+    activity_rights=ROOT / 'build' / platform / 'activity-entitlements.plist'
+    main_rights.write_bytes(plistlib.dumps(profile_rights[0]))
+    activity_rights.write_bytes(plistlib.dumps(profile_rights[2]))
+    main_sign_flags=['--entitlements',str(main_rights)]
+    activity_flags=['--profile',str(args.activity_profile),'--entitlements',str(activity_rights)]
+subprocess.run(['python3',str(ROOT / 'scripts/build_live_activity.py'),'--app',str(app),'--build',info['CFBundleVersion'],'--identity',args.identity,'--bundle-id',args.bundle_id + '.activity']+activity_flags+(['--simulator'] if args.simulator else []),check=True)
+subprocess.run(['codesign','--force','--sign',args.identity,*main_sign_flags,str(app)],check=True)
 if not args.simulator:
-    ipa = ROOT / 'build' / f"Dylix-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-unsigned.ipa"
+    package_kind = 'signed' if profile_rights else 'unsigned'
+    ipa = ROOT / 'build' / f"Dylix-{info['CFBundleShortVersionString']}-build{info['CFBundleVersion']}-opensource-{package_kind}.ipa"
     with zipfile.ZipFile(ipa, 'w', zipfile.ZIP_DEFLATED) as out:
         for path in app.rglob('*'):
             if path.is_file(): out.write(path, pathlib.Path('Payload') / app.name / path.relative_to(app))

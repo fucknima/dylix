@@ -23,6 +23,8 @@
 - **iOS tweak development 指南** — MIT。https://github.com/liamschwie/skills/tree/main/skills/ios-tweak-development；许可文本：[`ios-tweak-skills-LICENSE.txt`](Resources/ThirdPartyNotices/ios-tweak-skills-LICENSE.txt)。
 - **Cydia Substrate compatibility header** — BSD-style (see header)。https://github.com/theos/headers；许可文本：[`CydiaSubstrate-header.txt`](Resources/ThirdPartyNotices/CydiaSubstrate-header.txt)。
 
+- **models.dev 能力目录数据** — MIT。来源：anomalyco/models.dev，经 OpenMinis/OpenMinis 的固定快照提取；仅包含模型能力与思考控制声明。许可与来源摘要：[`ModelsDev.txt`](Resources/ThirdPartyNotices/ModelsDev.txt)。
+
 ## 本地修改与归属
 
 - REipa 固定上游 revision `b0d4759451ed20796892a059fa53d9dbb130af61`，包含本地边界检查/大镜像/增量导出修改；详情见 Vendor/REipa/README-TweakForge.md，源码完整保留。

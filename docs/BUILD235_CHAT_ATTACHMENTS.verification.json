@@ -1,0 +1,12 @@
+{
+  "build": 235,
+  "version": "1.1.1",
+  "sdk": "iphoneos26.0",
+  "minimumOS": "15.0",
+  "testedRuntime": "iOS18.3 simulator",
+  "iphoneChecks": 17,
+  "ipadChecks": 20,
+  "passed": true,
+  "ipaSHA256": "f130a28d2253b748fc46b3e71acf54e4aafb8d542d1bfde588ceffd6b5fb286f",
+  "deviceRuntimeValidated": false
+}

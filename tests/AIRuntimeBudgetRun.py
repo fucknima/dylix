@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory(prefix='tf-runtime-budget-') as temp:
     subprocess.run([str(binary)],check=True)
 # Lifecycle regression guards: navigation must not be treated as stop/background.
 chat=(root/'App/AI/UI/TFAIChat.m').read_text()
-workspace=(root/'App/Studio.m').read_text().split('@implementation TFAIProjectWorkspace',1)[1].split('@end',1)[0]
+workspace=(root/'App/ProjectWorkspace.inc').read_text().split('@implementation TFAIProjectWorkspace',1)[1].split('@end',1)[0]
 disappear=chat.split('- (void)viewWillDisappear:',1)[1].split('\n- ',1)[0]
 assert 'runtime stop' not in disappear
 assert '[self.chat background]' not in workspace

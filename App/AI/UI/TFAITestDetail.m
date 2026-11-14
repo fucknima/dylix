@@ -1,15 +1,17 @@
 #import "TFAITestDetail.h"
 #import "TFAIUIHelpers.h"
 #import "../Providers/TFAIProtocol.h"
-static NSString *TFProbeTitle(NSString *key){return @{@"text":@"文本响应",@"stream":@"流式响应",@"image":@"图片理解",@"tools":@"工具调用"}[key]?:@"能力测试";}
+#import "../Providers/TFAIRegistry.h"
+static NSString *TFProbeTitle(NSString *key){return @{@"text":@"文本响应",@"stream":@"流式响应",@"image":@"图片理解",@"tools":@"工具调用",@"thinking":@"深度思考"}[key]?:@"能力测试";}
 static NSString *TFProbeState(NSString *state){return @{@"pass":@"✅ 本次验证通过",@"fail":@"❌ 本次请求失败",@"unknown":@"⚠️ 本次未证实",@"running":@"正在测试",@"pending":@"尚未测试"}[state]?:@"尚未测试";}
 NSDictionary *TFAIRecordProbeResult(NSMutableDictionary *connection,NSString *capability,NSDictionary *result,NSError *error){
  BOOL pass=!error&&[result[@"status"] isEqual:@"supported"];NSString *detail=error.localizedDescription?:result[@"detail"]?:@"服务已响应，但本次回答未提供足够的能力证据。";
  NSDictionary *diagnostics=[result[@"diagnostics"] isKindOfClass:NSDictionary.class]?result[@"diagnostics"]:[error.userInfo[@"diagnostics"] isKindOfClass:NSDictionary.class]?error.userInfo[@"diagnostics"]:@{};
  NSString *secret=[TFAIConnections secret:connection[@"id"]?:@""];diagnostics=TFAISanitizeProbeDiagnostics(diagnostics,secret);detail=TFAISanitizeProbeDiagnostics(@{@"reason":detail},secret)[@"reason"]?:@"测试已完成";
  NSMutableDictionary *record=[@{@"state":pass?@"pass":error?@"fail":@"unknown",@"detail":detail,@"diagnostics":diagnostics} mutableCopy];
- NSMutableDictionary *caps=[connection[@"capabilities"] mutableCopy]?:[NSMutableDictionary new];caps[capability]=pass?@"supported":@"unknown";connection[@"capabilities"]=caps;
- NSMutableDictionary *results=[connection[@"testResults"] mutableCopy]?:[NSMutableDictionary new];results[capability]=record;connection[@"testResults"]=results;connection[@"testedAt"]=@(NSDate.date.timeIntervalSince1970);
+ BOOL sameScope=!connection[@"capabilitiesScope"]||[connection[@"capabilitiesScope"] isEqual:TFAICapabilityScope(connection)];
+ NSMutableDictionary *caps=sameScope?[connection[@"capabilities"] mutableCopy]:nil;caps=caps?:[NSMutableDictionary new];if(pass||![caps[capability] isEqual:@"supported"])caps[capability]=pass?@"supported":@"unknown";connection[@"capabilities"]=caps;connection[@"capabilitiesScope"]=TFAICapabilityScope(connection);
+ NSMutableDictionary *results=sameScope?[connection[@"testResults"] mutableCopy]:nil;results=results?:[NSMutableDictionary new];results[capability]=record;connection[@"testResults"]=results;connection[@"testedAt"]=@(NSDate.date.timeIntervalSince1970);
  NSError *saveError=nil;if(![TFAIConnections save:connection secret:nil error:&saveError])record[@"saveWarning"]=saveError.localizedDescription?:@"测试记录保存失败";
  [NSNotificationCenter.defaultCenter postNotificationName:@"TFAIProbeResultChanged" object:connection[@"id"] userInfo:@{@"capability":capability,@"record":record}];
  return record;
@@ -17,10 +19,10 @@ NSDictionary *TFAIRecordProbeResult(NSMutableDictionary *connection,NSString *ca
 static NSString *TFValue(id obj){if([obj isKindOfClass:NSString.class])return obj;if([NSJSONSerialization isValidJSONObject:obj])return [[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:obj options:NSJSONWritingPrettyPrinted error:nil] encoding:NSUTF8StringEncoding];return obj?[obj description]:@"未记录";}
 NSString *TFAIProbeReport(NSDictionary *record,NSString *capability){
  NSDictionary *d=[record[@"diagnostics"] isKindOfClass:NSDictionary.class]?record[@"diagnostics"]:@{};NSMutableString *report=[NSMutableString stringWithFormat:@"Dylix · %@\n%@\n%@\n",TFProbeTitle(capability),TFProbeState(record[@"state"]),record[@"detail"]?:@"尚无测试记录"];
- NSArray *fields=@[@[@"timestamp",@"测试时间"],@[@"duration",@"耗时（秒）"],@[@"protocol",@"协议"],@[@"model",@"模型"],@[@"endpoint",@"请求地址"],@[@"httpStatus",@"HTTP状态"],@[@"requestSummary",@"测试内容"],@[@"expected",@"预期结果"],@[@"reason",@"判定原因"],@[@"responseText",@"模型实际回答"],@[@"responseBody",@"服务原始响应（截断并脱敏）"]];
+ NSArray *fields=@[@[@"timestamp",@"测试时间"],@[@"duration",@"耗时（秒）"],@[@"protocol",@"协议"],@[@"model",@"模型"],@[@"endpoint",@"请求地址"],@[@"httpStatus",@"HTTP状态"],@[@"requestSummary",@"测试内容"],@[@"expected",@"预期结果"],@[@"reason",@"判定原因"],@[@"responseText",@"模型实际回答"],@[@"responseBody",@"服务原始响应（截断并脱敏）"],@[@"reasoningSummary",@"实际发送的思考参数"]];
  for(NSArray *f in fields)if(d[f[0]])[report appendFormat:@"\n%@\n%@\n",f[1],TFValue(d[f[0]])];
  if(record[@"saveWarning"])[report appendFormat:@"\n保存提示：%@\n",record[@"saveWarning"]];
- [report appendString:@"\n测试仅使用内置样例；未发送项目、会话或用户附件。测试未通过不等于模型永久不支持此能力。\n"];
+ [report appendString:@"\n测试仅使用内置样例；未发送项目、会话或用户附件。测试是可选诊断，不是启用条件；测试失败不会禁用功能。\n"];
  return report;
 }
 @interface TFAITestDetail : UITableViewController
@@ -39,7 +41,7 @@ NSString *TFAIProbeReport(NSDictionary *record,NSString *capability){
  NSDictionary *d=[self.record[@"diagnostics"] isKindOfClass:NSDictionary.class]?self.record[@"diagnostics"]:@{};
  NSMutableArray *summary=[NSMutableArray arrayWithObject:@{@"title":TFProbeState(self.record[@"state"]),@"text":self.record[@"detail"]?:@"尚未测试。点击右上角重试图标测试此项。"}];
  for(NSArray *f in @[@[@"protocol",@"协议"],@[@"model",@"模型"],@[@"endpoint",@"实际请求地址"],@[@"httpStatus",@"HTTP 状态"],@[@"timestamp",@"测试时间"],@[@"duration",@"耗时"]])if(d[f[0]]){NSString *value=TFValue(d[f[0]]);if([f[0] isEqual:@"timestamp"]&&[d[f[0]] isKindOfClass:NSNumber.class]){NSDateFormatter *format=[NSDateFormatter new];format.dateFormat=@"yyyy/MM/dd HH:mm:ss";value=[format stringFromDate:[NSDate dateWithTimeIntervalSince1970:[d[f[0]] doubleValue]]];}if([f[0] isEqual:@"duration"])value=[NSString stringWithFormat:@"%.2f 秒",[d[f[0]] doubleValue]];[summary addObject:@{@"title":f[1],@"text":value}];}
- NSMutableArray *request=[NSMutableArray new];if(d[@"testImage"])[request addObject:@{@"title":@"本次测试图片",@"image":d[@"testImage"]}];[request addObject:@{@"title":@"测试提示词与发送内容",@"text":TFValue(d[@"requestSummary"]?:@"历史版本未记录测试内容，请重新测试此项。"),@"mono":@YES}];if(d[@"expected"])[request addObject:@{@"title":@"预期结果",@"text":TFValue(d[@"expected"])}];
+ NSMutableArray *request=[NSMutableArray new];if(d[@"testImage"])[request addObject:@{@"title":@"本次测试图片",@"image":d[@"testImage"]}];[request addObject:@{@"title":@"测试提示词与发送内容",@"text":TFValue(d[@"requestSummary"]?:@"历史版本未记录测试内容，请重新测试此项。"),@"mono":@YES}];if(d[@"reasoningSummary"])[request addObject:@{@"title":@"实际发送的思考参数",@"text":TFValue(d[@"reasoningSummary"]),@"mono":@YES}];if(d[@"expected"])[request addObject:@{@"title":@"预期结果",@"text":TFValue(d[@"expected"])}];
  NSMutableArray *response=[NSMutableArray new];for(NSArray *f in @[@[@"reason",@"判定原因"],@[@"responseText",@"模型实际回答"],@[@"responseBody",@"服务原始响应 · 已截断并脱敏"]])if(d[f[0]])[response addObject:@{@"title":f[1],@"text":TFValue(d[f[0]]),@"mono":@(![f[0] isEqual:@"reason"])}];if(!response.count)[response addObject:@{@"title":@"暂无详细响应",@"text":@"历史版本只保存了结论。重新测试后可查看请求内容、HTTP 状态和模型实际回答。"}];
  self.sections=@[summary,request,response];[self.tableView reloadData];
 }

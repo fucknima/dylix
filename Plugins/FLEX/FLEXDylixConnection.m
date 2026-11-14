@@ -62,7 +62,7 @@ NSError *FLEXDylixConnectionError(NSString *host, NSUInteger port, NSString *pat
     NSDictionary *info = NSBundle.mainBundle.infoDictionary ?: @{};
     NSString *systemError = posixCode ? [NSString stringWithUTF8String:strerror((int)posixCode)] : @"无";
     NSString *diagnostic = [NSString stringWithFormat:
-        @"FLEX Dylix 连接诊断 · 1.0.2 / Build220\n时间：%@\n目标：%@\n接口：%@\n阶段：%@\nPOSIX：%ld (%@)\nHTTP：%ld\n宿主：%@\n宿主版本：%@ (%@)\n系统：%@\n宿主本地网络用途说明：%@\n%@\n\n排查：在运行 FLEX 的设备上用 Safari 打开上述目标地址。若也打不开，先检查手机服务、Wi-Fi、VPN 与设备隔离；若能打开但插件失败，再检查被注入 App 的本地网络权限和策略。权限说明存在与否不代表已获授权，本报告不能单独判断权限状态。\n不包含授权码、令牌、Cookie、会话正文。",
+        @"FLEX Dylix 连接诊断 · 1.0.3 / Build236\n时间：%@\n目标：%@\n接口：%@\n阶段：%@\nPOSIX：%ld (%@)\nHTTP：%ld\n宿主：%@\n宿主版本：%@ (%@)\n系统：%@\n宿主本地网络用途说明：%@\n%@\n\n排查：在运行 FLEX 的设备上用 Safari 打开上述目标地址。若也打不开，先检查手机服务、Wi-Fi、VPN 与设备隔离；若能打开但插件失败，再检查被注入 App 的本地网络权限和策略。权限说明存在与否不代表已获授权，本报告不能单独判断权限状态。\n不包含授权码、令牌、Cookie、会话正文。",
         NSDate.date, destination, [paths containsObject:path] ? path : @"其他接口", stage,
         (long)posixCode, systemError, (long)httpStatus, NSBundle.mainBundle.bundleIdentifier ?: @"未知",
         info[@"CFBundleShortVersionString"] ?: @"未知", info[@"CFBundleVersion"] ?: @"未知",

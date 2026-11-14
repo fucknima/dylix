@@ -1162,6 +1162,35 @@ dword_t sys_fchmodat(fd_t at_f, addr_t path_addr, dword_t mode) {
     return generic_setattrat(at, path, make_attr(mode, mode), true);
 }
 
+// Linux fchmodat2 is used by musl for GNU tar's no-follow directory restore.
+// Returning ENOSYS sends musl through /proc/self/fd, which this guest does not
+// expose as a general path alias. Keep all mutations in the regular VFS.
+dword_t sys_fchmodat2(fd_t at_f, addr_t path_addr, dword_t mode, dword_t flags) {
+    const dword_t empty_path = 0x1000;
+    if (flags & ~(AT_SYMLINK_NOFOLLOW_ | empty_path))
+        return _EINVAL;
+    char path[MAX_PATH];
+    if (user_read_string(path_addr, path, sizeof(path)))
+        return _EFAULT;
+    if (!path[0]) {
+        if (!(flags & empty_path)) return _ENOENT;
+        if (at_f == AT_FDCWD_)
+            return generic_setattrat(AT_PWD, ".", make_attr(mode, mode & ~S_IFMT), true);
+        return sys_fchmod(at_f, mode);
+    }
+    struct fd *at = at_fd(at_f);
+    if (at == NULL) return _EBADF;
+    bool follow = !(flags & AT_SYMLINK_NOFOLLOW_);
+    if (!follow) {
+        struct statbuf stat;
+        int err = generic_statat(at, path, &stat, false);
+        if (err < 0) return err;
+        if (S_ISLNK(stat.mode)) return _EOPNOTSUPP;
+    }
+    mode &= ~S_IFMT;
+    return generic_setattrat(at, path, make_attr(mode, mode), follow);
+}
+
 dword_t sys_chmod(addr_t path_addr, dword_t mode) {
     return sys_fchmodat(AT_FDCWD_, path_addr, mode);
 }

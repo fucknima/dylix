@@ -274,6 +274,16 @@ static NSDictionary *Command(SmokeChat *chat, NSString *op, NSDictionary *args) 
  Check([[remembered valueForKey:@"modelID"] isEqual:@"gpt-6.1-sol"],@"reopening chat restores raw selected model");
  [chat setValue:@YES forKey:@"busy"];[chat performSelector:NSSelectorFromString(@"modelTapped")];
  Check([[chat valueForKey:@"modelID"] isEqual:@"gpt-6.1-sol"]&&!chat.presentedViewController,@"active request blocks misleading model changes");[chat setValue:@NO forKey:@"busy"];
+ 
+ [chat setValue:@"high" forKey:@"reasoningEffort"];((UITextView *)[chat valueForKey:@"input"]).text=@"explicit thinking";[chat sendTapped];
+ Check([chat.lastAIArguments[@"reasoningEffort"] isEqual:@"high"],@"FLEX sends explicit thinking effort with selected model");
+ [chat setValue:nil forKey:@"reasoningEffort"];((UITextView *)[chat valueForKey:@"input"]).text=@"inherit thinking";[chat sendTapped];
+ Check(chat.lastAIArguments[@"reasoningEffort"]==nil,@"untouched FLEX effort is omitted to inherit live conversation setting");
+ [chat applyModelSelection:@{@"id":@"same-connection",@"model":@"gpt-6-sol",@"efforts":@[@{@"id":@"auto",@"name":@"默认"},@{@"id":@"high",@"name":@"高"}]}];
+ Check([[chat valueForKey:@"reasoningEffort"] isEqual:@"auto"]&&[[chat valueForKey:@"reasoningOptions"] count]==2,@"model changes clear incompatible thinking and expose server-advertised options");
+ [chat setValue:@"high" forKey:@"reasoningEffort"];[chat applyModelSelection:@{@"id":@"same-connection",@"model":@"gpt-6-sol"}];
+ Check([[chat valueForKey:@"reasoningEffort"] isEqual:@"high"],@"reselecting same model preserves explicit thinking");
+ [chat applyModelSelection:@{@"id":@"same-connection",@"model":@"gpt-6.1-sol"}];
  chat.grants=[@{@"test-session":@YES} mutableCopy];
  NSString *authorized=NSUUID.UUID.UUIDString;
  [chat executeAgentCommand:@{@"id":authorized,@"operation":@"defaults_get",@"arguments":@{@"key":@"AppleLocale"},@"sessionID":@"test-session",@"expiresAt":@(NSDate.date.timeIntervalSince1970+30)}];

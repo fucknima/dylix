@@ -1,6 +1,6 @@
 PACKAGE_IDENTIFIER = com.pxx917144686.flex
 PACKAGE_NAME = FLEX++
-PACKAGE_VERSION = 1.0.2
+PACKAGE_VERSION = 1.0.3
 PACKAGE_ARCHITECTURE = arm64
 PACKAGE_REVISION = 1
 PACKAGE_SECTION = Tweaks
@@ -10,7 +10,7 @@ PACKAGE_DESCRIPTION = FLEX调试工具
 define Package/com.pxx917144686.flex
   Package: com.pxx917144686.flex
   Name: FLEX++
-  Version: 1.0.2
+  Version: 1.0.3
   Architecture: arm64
   Author: FLEX Team & pxx917144686修改
   Section: Tweaks

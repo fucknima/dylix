@@ -1,4 +1,5 @@
 #import "TFAIToolRegistry.h"
+#import <CommonCrypto/CommonDigest.h>
 #import <math.h>
 
 static NSDictionary *Declarations(void){
@@ -7,7 +8,8 @@ static NSDictionary *Declarations(void){
   void(^add)(NSArray *,NSString *,NSString *,NSString *,NSString *,BOOL,NSString *,NSString *)=^(NSArray *names,NSString *effect,NSString *scope,NSString *tier,NSString *approval,BOOL foreground,NSString *module,NSString *availability){
    for(NSString *name in names)all[name]=@{@"name":name,@"description":[NSString stringWithFormat:@"%@ (%@; %@)",name,effect,scope],@"effect":effect,@"scope":scope,@"tier":tier,@"permissionTier":tier,@"approvalPolicy":approval,@"requiresUserApproval":@(![approval isEqual:@"none"]),@"requiresForeground":@(foreground),@"module":module,@"availability":availability};
   };
-  add(@[@"read_development_guide",@"read_app_state"],@"read",@"app_public_state",@"A",@"none",NO,@"core",@"always");
+  add(@[@"read_development_guide",@"read_app_state",@"search_tools"],@"read",@"app_public_state",@"A",@"none",NO,@"core",@"always");
+  add(@[@"update_plan"],@"transcript",@"current_session_plan",@"A",@"none",NO,@"core",@"session");
   add(@[@"read_context"],@"read",@"current_session_history",@"A",@"none",NO,@"core",@"session");
   add(@[@"set_app_settings"],@"write",@"declared_app_preferences",@"A",@"existing",YES,@"core",@"always");
   add(@[@"app_action"],@"mixed",@"declared_app_actions",@"A",@"existing",NO,@"core",@"actions");
@@ -23,15 +25,17 @@ static NSDictionary *Declarations(void){
   add(@[@"classdump_export"],@"read",@"selected_staged_ipa_derived_output",@"A",@"none",NO,@"core",@"ipa");
   add(@[@"classdump_headers"],@"read",@"selected_local_headers",@"A",@"none",NO,@"core",@"headers");
   add(@[@"web_read",@"web_search",@"github_query"],@"read",@"public_web",@"A",@"none",NO,@"core",@"web");
-  add(@[@"sandbox_install_tools",@"sandbox_process_start",@"sandbox_process_write",@"sandbox_process_resize",@"sandbox_process_stop"],@"write",@"session_linux_process",@"A",@"every_call",NO,@"sandbox",@"sandbox");
+  add(@[@"sandbox_install_tools",@"sandbox_process_start",@"sandbox_process_write",@"sandbox_process_resize",@"sandbox_process_stop"],@"write",@"session_linux_process",@"A",@"existing",NO,@"sandbox",@"sandbox");
   add(@[@"sandbox_process_read",@"sandbox_process_list",@"sandbox_files"],@"read",@"session_linux_process",@"A",@"none",NO,@"sandbox",@"sandbox");
   add(@[@"sandbox_preview"],@"read",@"session_owned_loopback_http",@"A",@"none",YES,@"sandbox",@"sandbox");
   add(@[@"sandbox_reverse"],@"mixed",@"selected_binary_in_session_linux",@"A",@"existing",NO,@"sandbox",@"sandbox");
   add(@[@"sandbox_browser"],@"mixed",@"session_owned_loopback_http",@"A",@"existing",YES,@"sandbox",@"sandbox");
-  add(@[@"sandbox_execute",@"sandbox_import_attachment",@"sandbox_export_file"],@"write",@"session_linux_sandbox",@"A",@"every_call",NO,@"sandbox",@"sandbox");
+  add(@[@"sandbox_execute",@"sandbox_import_attachment",@"sandbox_export_file"],@"write",@"session_linux_sandbox",@"A",@"existing",NO,@"sandbox",@"sandbox");
   add(@[@"agent_skill_read"],@"read",@"project_or_bundled_skill_text",@"A",@"none",NO,@"skills",@"skills");
   add(@[@"web_browse"],@"mixed",@"ephemeral_public_web",@"A",@"existing",YES,@"browser",@"browser");
+  add(@[@"agent_memory_append"],@"write",@"confirmed_local_daily_note",@"A",@"every_call",YES,@"memory",@"always");
   add(@[@"agent_memory_read"],@"read",@"project_or_local_MEMORY.md",@"A",@"none",NO,@"memory",@"always");
+  add(@[@"subtask_task"],@"mixed",@"current_project_child_tasks",@"A",@"existing",NO,@"build_queue",@"projectBridge");
   add(@[@"agent_build_tasks"],@"read",@"current_project_tasks",@"A",@"none",NO,@"build_queue",@"projectBridge");
   add(@[@"read_attachment"],@"read",@"selected_attachment_or_live_directory_grant",@"B",@"none",NO,@"core",@"attachment");
   add(@[@"remote_workspace_status"],@"read",@"explicitly_enabled_remote_service",@"B",@"none",NO,@"remote",@"remote");
@@ -125,14 +129,18 @@ static BOOL PreflightError(NSError **error,NSInteger code,NSString *name,NSStrin
  if([reason isEqual:@"invalid_arguments"])recovery[@"requiresUserAuthorization"]=@NO;
  if(error)*error=[NSError errorWithDomain:@"Dylix.ToolRegistry" code:code userInfo:@{NSLocalizedDescriptionKey:message,@"TFAIToolRecovery":recovery.copy}];return NO;
 }
+static NSString *WorkspacePreferencesKey(NSString *root){if(!root.length)return nil;NSData *data=[root.stringByStandardizingPath.stringByResolvingSymlinksInPath dataUsingEncoding:NSUTF8StringEncoding];unsigned char hash[32];CC_SHA256(data.bytes,(CC_LONG)data.length,hash);NSMutableString *key=[NSMutableString stringWithString:@"Dylix.DisabledTools.v1."];for(int i=0;i<32;i++)[key appendFormat:@"%02x",hash[i]];return key;}
 @implementation TFAIToolRegistry
 + (NSArray *)modules{return @[@"skills",@"mcp",@"browser",@"memory",@"build_queue",@"sandbox",@"remote",@"isolation"];}
++ (NSArray *)toolNames{return [Declarations().allKeys sortedArrayUsingSelector:@selector(compare:)];}
++ (NSSet *)disabledTools:(NSString *)root{NSString *key=WorkspacePreferencesKey(root);id values=key?[NSUserDefaults.standardUserDefaults objectForKey:key]:nil;if(![values isKindOfClass:NSArray.class])return [NSSet set];NSMutableSet *names=[NSMutableSet new];for(id name in values)if([name isKindOfClass:NSString.class])[names addObject:name];return names;}
++ (void)setTool:(NSString *)name enabled:(BOOL)enabled root:(NSString *)root{@synchronized(self){NSString *key=WorkspacePreferencesKey(root);if(!key||!Declarations()[name])return;NSMutableSet *names=[[self disabledTools:root] mutableCopy];if(enabled)[names removeObject:name];else[names addObject:name];[NSUserDefaults.standardUserDefaults setObject:[names.allObjects sortedArrayUsingSelector:@selector(compare:)] forKey:key];[NSNotificationCenter.defaultCenter postNotificationName:@"DylixToolRegistryChanged" object:root];}}
 + (BOOL)enabled:(NSString *)module{if([module isEqual:@"core"])return YES;if(![self.modules containsObject:module])return NO;id value=[NSUserDefaults.standardUserDefaults objectForKey:[@"Dylix.Tools.v1." stringByAppendingString:module]];return value?[value boolValue]:![@[@"isolation",@"remote"] containsObject:module];}
 + (void)setEnabled:(BOOL)enabled module:(NSString *)module{if(![self.modules containsObject:module])return;[NSUserDefaults.standardUserDefaults setBool:enabled forKey:[@"Dylix.Tools.v1." stringByAppendingString:module]];[NSNotificationCenter.defaultCenter postNotificationName:@"DylixToolRegistryChanged" object:module];}
 + (NSDictionary *)descriptor:(NSString *)name{return Declarations()[name];}
 + (NSArray *)entries:(NSArray *)schemas context:(NSDictionary *)context{
- NSMutableArray *out=[NSMutableArray new];NSMutableSet *seen=[NSMutableSet new];
- for(id raw in schemas){if(![raw isKindOfClass:NSDictionary.class]||![raw[@"name"] isKindOfClass:NSString.class])continue;NSString *name=raw[@"name"];if([seen containsObject:name])continue;[seen addObject:name];NSMutableDictionary *entry=[Declarations()[name] mutableCopy];
+ NSMutableArray *out=[NSMutableArray new];NSMutableSet *seen=[NSMutableSet new];NSSet *disabled=[self disabledTools:context[@"projectRoot"]];
+ for(id raw in schemas){if(![raw isKindOfClass:NSDictionary.class]||![raw[@"name"] isKindOfClass:NSString.class])continue;NSString *name=raw[@"name"];if([disabled containsObject:name])continue;if([seen containsObject:name])continue;[seen addObject:name];NSMutableDictionary *entry=[Declarations()[name] mutableCopy];
   if(!entry&&[name hasPrefix:@"mcp_"]&&[context[@"mcpNames"] containsObject:name])entry=[@{@"name":name,@"effect":@"read",@"scope":@"user_allowed_MCP_query",@"tier":@"A",@"permissionTier":@"A",@"approvalPolicy":@"none",@"requiresUserApproval":@NO,@"requiresForeground":@NO,@"module":@"mcp",@"availability":@"mcp"} mutableCopy];
   if([name hasPrefix:@"mcp_"]&&[context[@"mcpConfirmNames"] containsObject:name]){entry[@"effect"]=@"control";entry[@"scope"]=@"user_enabled_MCP_service";entry[@"approvalPolicy"]=@"confirmation";entry[@"requiresUserApproval"]=@YES;if([context[@"readOnly"] boolValue]||![context[@"hasApproval"] boolValue])continue;}
   if(!Available(entry,context))continue;
@@ -152,7 +160,7 @@ static BOOL PreflightError(NSError **error,NSInteger code,NSString *name,NSStrin
  if(!sent)return PreflightError(error,2,@"",@"tool_not_advertised",@"advertised",nil,@"此工具未在本轮下发，未执行。请只使用当前请求提供的工具，不要重放历史工具调用。",@"Use only currently advertised tool schemas; do not replay an old call or ask for unrelated authorization.");
  NSDictionary *issue=nil;
  if(!Validate(call[@"arguments"],sent[@"parameters"],0,@"arguments",&issue)){
-  NSString *hint=[name isEqual:@"read_context"]?@"此工具只回读当前会话原文。limit 可省略（默认 4096），或使用 1–4096 的整数；offset 从 0 开始，续读使用返回的 next_offset。":@"请按本轮工具声明修正参数后重试。";
+  NSString *hint=[name isEqual:@"read_context"]?@"此工具只回读当前会话原文。原始分页的 limit 可省略（默认 4096），或使用 1–4096 的整数；offset 从 0 开始，续读使用返回的 next_offset。文本字段模式使用 field、start_line、line_count、column，max_chars 为 1–16384 的整数；预算紧张时建议 512–1024，不能与 offset/limit 混用。":@"请按本轮工具声明修正参数后重试。";
   NSString *message=[NSString stringWithFormat:@"工具 %@ 参数不符合声明：%@ %@。未执行；这是参数校验失败，无需重新授权。%@",name,issue[@"parameter"],issue[@"message"],hint];
   return PreflightError(error,3,name,@"invalid_arguments",@"advertised",issue,message,[NSString stringWithFormat:@"Correct %@ to match the advertised schema and retry this tool only. Do not replay completed side effects or request authorization to fix an argument error. %@",issue[@"parameter"],hint]);
  }

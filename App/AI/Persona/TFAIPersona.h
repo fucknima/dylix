@@ -3,6 +3,7 @@ NS_ASSUME_NONNULL_BEGIN
 FOUNDATION_EXPORT NSString *const TFAIPersonaDidChangeNotification;
 FOUNDATION_EXPORT NSString *const TFAIPersonaBeginMarker;
 FOUNDATION_EXPORT NSString *const TFAIPersonaEndMarker;
+FOUNDATION_EXPORT NSArray *TFAIPersonasSorted(NSArray *items);
 FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
 
 // Persona is an optional layer; developer prompt and identity/Soul stay separate.
@@ -12,7 +13,7 @@ FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
 @property(nonatomic,readonly,copy) NSString *generation;
 @property(nonatomic,readonly,copy) NSArray<NSString *> *modelPatterns,*providerIDs;
 @property(nonatomic,readonly) NSInteger matchPriority;
-@property(nonatomic,readonly) BOOL isBuiltin;
+@property(nonatomic,readonly) BOOL isBuiltin,pinned;
 @property(nonatomic,readonly) NSTimeInterval updatedAt;
 @property(nonatomic,readonly) NSUInteger byteCount;
 - (nullable instancetype)initWithJSON:(NSDictionary *)json;
@@ -39,6 +40,7 @@ FOUNDATION_EXPORT NSString *TFAIPersonaModeLabel(NSString *mode);
 - (BOOL)resetBuiltin:(NSString *)identifier error:(NSError **)error;
 - (BOOL)restoreBuiltins:(NSError **)error;
 - (BOOL)remove:(NSString *)identifier error:(NSError **)error;
+- (BOOL)setPinned:(BOOL)pinned identifier:(NSString *)identifier error:(NSError **)error;
 - (NSString *)statusBadge;
 @end
 

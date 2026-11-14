@@ -53,16 +53,10 @@ static inline bool mount_cache_check(struct mount *cached, const char *path) {
 struct mount *mount_find(char *path) {
     assert(path_is_normalized(path));
 
-    // === FAST PATH: Check thread-local cache ===
-    struct mount *cached = last_mount_cache;
-    if (mount_cache_check(cached, path)) {
-        // Cache hit - just increment refcount
-        lock(&mounts_lock);
-        cached->refcount++;
-        unlock(&mounts_lock);
-        return cached;
-    }
-
+    // Dylix: a cached parent is not necessarily the longest matching mount.
+    // /sessions/<id> must not shadow its /skills (or /dev/pts) submount.
+    // Always choose the most-specific mount under the table lock. The path
+    // normalization cache still handles repeat path resolution.
     // === SLOW PATH: Full mount table search ===
     lock(&mounts_lock);
     struct mount *mount = NULL;

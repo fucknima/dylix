@@ -20,3 +20,5 @@ void TFAIImportAttachmentURLs(NSArray<NSURL *> *urls,void(^completion)(NSArray *
 
 // Copies one explicitly selected ordinary file to an ephemeral local staging URL.
 void TFAIStageSandboxAttachment(NSDictionary *reference,NSString *relativePath,void (^completion)(NSURL *,NSError *));
+// Internal readonly guest VFS only: bounded filtered snapshot, never a host URL.
+NSDictionary *TFAIDirectoryGuestSnapshot(NSDictionary *entry,NSString *relative,BOOL payload,NSError **error);

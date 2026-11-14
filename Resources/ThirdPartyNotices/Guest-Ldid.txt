@@ -1,0 +1,5 @@
+Standalone Linux ldid (not linked into Dylix)
+Source: https://github.com/ProcursusTeam/ldid
+Revision: af86971ae72ec3ed3d0a699107c4e882324c941b
+License: AGPL-3.0-or-later
+Matching full source archive, COPYING, build dependency hashes and binary SHA256 are distributed in iSH/GuestTools/. Rebuild: scripts/build_guest_ldid.py.

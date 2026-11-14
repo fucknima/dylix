@@ -1,0 +1,26 @@
+#import "TFAIISHRemote.h"
+#import "TFAIISHRuntime.h"
+static NSMutableSet *Grants(void){static NSMutableSet *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableSet new];});return v;}
+static NSMutableDictionary *Owners(void){static NSMutableDictionary *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableDictionary new];});return v;}
+static NSMutableDictionary *Epochs(void){static NSMutableDictionary *v;static dispatch_once_t once;dispatch_once(&once,^{v=[NSMutableDictionary new];});return v;}
+static NSError *RemoteError(NSString *text){return [NSError errorWithDomain:@"Dylix.Remote.Terminal" code:1 userInfo:@{NSLocalizedDescriptionKey:text}];}
+static NSString *Epoch(NSString *key){NSString *value=Epochs()[key];if(!value){value=NSUUID.UUID.UUIDString;Epochs()[key]=value;}return value;}
+static NSArray *Lease(NSString *session,NSString *device){return @[Epoch(@"global"),Epoch([@"s:" stringByAppendingString:session]),Epoch([@"d:" stringByAppendingString:device])];}
+static void Stop(NSString *identifier,NSString *session){[TFAIISHRuntime.shared performProcess:@"stop" arguments:@{@"process_id":identifier} session:session completion:^(NSDictionary *r,NSError *e){}];}
+@implementation TFAIISHRemote
++ (BOOL)allowed:(NSString *)session{@synchronized(self){return session&&[Grants() containsObject:session];}}
++ (void)setAllowed:(BOOL)allowed session:(NSString *)session{if(!session.length)return;NSMutableArray *stops=[NSMutableArray new];@synchronized(self){if(allowed)[Grants() addObject:session];else{[Grants() removeObject:session];Epochs()[[@"s:" stringByAppendingString:session]]=NSUUID.UUID.UUIDString;for(NSString *identifier in Owners().allKeys.copy){NSDictionary *owner=Owners()[identifier];if([owner[@"session"] isEqual:session]){[stops addObject:@[identifier,session]];[Owners() removeObjectForKey:identifier];}}}}for(NSArray *stop in stops)Stop(stop[0],stop[1]);}
++ (void)perform:(NSString *)operation arguments:(NSDictionary *)arguments session:(NSString *)session device:(NSString *)device completion:(void(^)(NSDictionary *,NSError *))completion{
+ if(![device isKindOfClass:NSString.class]||!device.length||device.length>512||![session isKindOfClass:NSString.class]||![arguments isKindOfClass:NSDictionary.class]){completion(nil,RemoteError(@"终端设备、会话或参数无效"));return;}
+ __block NSArray *lease;@synchronized(self){lease=Lease(session,device);}
+ if(![self allowed:session]){completion(nil,RemoteError(@"先在手机对应会话的 Linux 终端菜单开启「局域网终端授权」；重启后须重新授权。"));return;}
+ if([operation isEqual:@"status"]){NSMutableArray *processes=[NSMutableArray new];@synchronized(self){for(NSDictionary *row in [TFAIISHRuntime.shared processes:session]){NSDictionary *owner=Owners()[row[@"process_id"]];if([owner[@"device"] isEqual:device]&&[owner[@"session"] isEqual:session])[processes addObject:row];}}completion(@{@"allowed":@YES,@"processes":processes,@"background":@"iOS may suspend; reopen Dylix to resume transport"},nil);return;}
+ if(![@[@"start",@"read",@"write",@"stop",@"resize"] containsObject:operation]){completion(nil,RemoteError(@"未开放此终端操作"));return;}
+ NSString *identifier=arguments[@"process_id"];if(![operation isEqual:@"start"]){NSDictionary *owner;@synchronized(self){owner=[identifier isKindOfClass:NSString.class]?Owners()[identifier]:nil;}if(![owner[@"device"] isEqual:device]||![owner[@"session"] isEqual:session]){completion(nil,RemoteError(@"进程不属于此设备与会话，不能访问本机或其他设备的终端。"));return;}}
+ @synchronized(self){if([operation isEqual:@"start"]&&Owners().count>=64){completion(nil,RemoteError(@"远程进程记录已达64个，请撤销会话终端授权后重新开启。"));return;}}
+ NSMutableDictionary *safe=[NSMutableDictionary new];NSSet *keys=[NSSet setWithArray:[operation isEqual:@"start"]?@[@"command",@"columns",@"rows"]:[operation isEqual:@"read"]?@[@"process_id",@"offset"]:[operation isEqual:@"write"]?@[@"process_id",@"input"]:[operation isEqual:@"resize"]?@[@"process_id",@"columns",@"rows"]:@[@"process_id"]];for(NSString *key in arguments)if(![keys containsObject:key]&&![key isEqual:@"sessionID"]){completion(nil,RemoteError(@"终端参数不在允许范围"));return;}else if([keys containsObject:key])safe[key]=arguments[key];
+ if([operation isEqual:@"read"]){safe[@"max_bytes"]=@16384;safe[@"wait_seconds"]=@0;}
+ [TFAIISHRuntime.shared performProcess:operation arguments:safe session:session completion:^(NSDictionary *result,NSError *error){BOOL valid;@synchronized(self){valid=[Grants() containsObject:session]&&[lease isEqual:Lease(session,device)];if(valid&&[operation isEqual:@"start"]&&result[@"process_id"])Owners()[result[@"process_id"]]=@{@"device":device,@"session":session};}if(!valid){if([operation isEqual:@"start"]&&result[@"process_id"])Stop(result[@"process_id"],session);completion(nil,RemoteError(@"授权已撤销，输出未返回，新进程已请求停止。"));return;}completion(result,error);}];
+}
++ (void)revokeDevice:(NSString *)device{NSMutableArray *stops=[NSMutableArray new];@synchronized(self){Epochs()[device?[@"d:" stringByAppendingString:device]:@"global"]=NSUUID.UUID.UUIDString;for(NSString *identifier in Owners().allKeys.copy){NSDictionary *owner=Owners()[identifier];if(!device||[owner[@"device"] isEqual:device]){[stops addObject:@[identifier,owner[@"session"]]];[Owners() removeObjectForKey:identifier];}}if(!device)[Grants() removeAllObjects];}for(NSArray *stop in stops)Stop(stop[0],stop[1]);}
+@end

@@ -7,7 +7,7 @@ def run(*args,ok=True):
     return p.stdout.strip()
 with tempfile.TemporaryDirectory(prefix='tf80-sdk-') as tmp:
     t=pathlib.Path(tmp);exe=t/'sdk-test'
-    run('xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk','-fobjc-arc','-framework','Foundation','-larchive',R/'tests/SDKResourcesHarness.m',R/'App/SDKResources.m',R/'App/ArchiveImport.m',R/'App/TheosMakefile.m','-o',exe)
+    run('xcrun','clang','-isysroot','/Library/Developer/CommandLineTools/SDKs/MacOSX15.2.sdk','-fobjc-arc','-framework','Foundation','-larchive',R/'tests/SDKResourcesHarness.m',R/'App/SDKResources.m',R/'App/AI/Resources/DXResourceStore.m',R/'App/ArchiveImport.m',R/'App/TheosMakefile.m','-o',exe)
     app=t/'Fixture.app';app.mkdir()
     (app/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'local.sdk.fixture','CFBundlePackageType':'APPL'}))
     built=R/'build/device/TheosMobileCompiler.app'

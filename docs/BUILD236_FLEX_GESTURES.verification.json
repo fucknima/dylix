@@ -1,0 +1,25 @@
+{
+  "iphone": {
+    "passed": true,
+    "checks": 21,
+    "runtime": "iOS 18.3 simulator"
+  },
+  "ipad": {
+    "passed": true,
+    "checks": 21,
+    "runtime": "iOS 18.3 simulator"
+  },
+  "pluginVersion": "1.0.3",
+  "appBuild": 236,
+  "realDeviceVerified": false,
+  "files": {
+    "dylib": {
+      "name": "FLEX++-1.0.3-arm64-rootless.dylib",
+      "sha256": "bef61b58790af53d0a7ef8e98a5ec581d7d3df5c9488a71230a10f713bcac40b"
+    },
+    "deb": {
+      "name": "com.pxx917144686.flex_1.0.3_iphoneos-arm64.deb",
+      "sha256": "b97139c7cd39b9030b1da91860b0b25e68b1d7a5b60b769269bd6df3ac65d317"
+    }
+  }
+}

@@ -114,12 +114,12 @@ if projects:
     assert confirmations == [sid], "grant must require one overall confirmation only"
 
     # Production Remote -> runtime -> HTTP transport: same connection, two models.
-    received = []
+    received = []; received_bodies = []
     class ModelEcho(BaseHTTPRequestHandler):
         def log_message(self, *args): pass
         def do_POST(self):
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            received.append(request["model"])
+            received.append(request["model"]); received_bodies.append(request)
             events = [{"choices": [{"index": 0, "delta": {"content": "echo:" + request["model"]}, "finish_reason": None}]},
                       {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}]
             if any("permission-flow-fixture" in str(m.get("content")) for m in request.get("messages", [])):
@@ -157,6 +157,28 @@ if projects:
             payload = json.load(error)
             assert error.code == 400 and "模型已移除" in payload["data"]["error"]
         assert len(received) == 2
+        # Explicit choice -> persisted -> omitted effort -> actual provider body.
+        opts = next(c['efforts'] for c in connections if c['model']=='gpt-5-fixture-alt')
+        assert any(o['id']=='high' for o in opts), opts
+        base={'sessionID':sid,'connectionID':'remote-ui-fixture','model':'gpt-5-fixture-alt','text':'thinking inheritance fixture','mode':'ask'}
+        job('ai_send',{**base,'reasoningEffort':'high'},project=project)
+        assert received_bodies[-1]['reasoning_effort']=='high'
+        job('ai_send',base,project=project)
+        assert received_bodies[-1]['reasoning_effort']=='high', 'omitted FLEX effort discarded session choice'
+        assert job('ai_read',{'sessionID':sid},project=project)['reasoningEffort']=='high'
+        job('ai_send',{**base,'reasoningEffort':'auto'},project=project)
+        assert 'reasoning_effort' not in received_bodies[-1]
+        job('ai_send',{**base,'reasoningEffort':'high'},project=project)
+        job('ai_send',{**base,'model':'gpt-5-fixture'},project=project)
+        assert 'reasoning_effort' not in received_bodies[-1], 'model change leaked old effort'
+        count=len(received_bodies)
+        try:
+            job('ai_send',{**base,'reasoningEffort':'nonexistent'},project=project)
+            raise AssertionError('invalid thinking effort accepted')
+        except urllib.error.HTTPError as error:
+            assert error.code==400
+        assert len(received_bodies)==count
+        print('PASS FLEX thinking explicit/inherited/auto/model-switch/invalid HTTP request regressions',flush=True)
         # Existing production approval path: one conversation grant covers both read and control.
         commands.write_text(json.dumps({"action": "fixture_model", "tools": True}))
         time.sleep(.5)

@@ -4,6 +4,7 @@ NSDictionary *TMCStorageScan(NSString *documents,NSString *library,NSString *tem
 NSDictionary *TMCStorageClean(NSDictionary *snapshot,NSSet<NSString *> *categories,NSError **error);
 NSArray<NSDictionary *> *TMCStorageChildren(NSDictionary *snapshot,NSString *category,NSString *directory,NSError **error);
 NSDictionary *TMCStorageCleanItems(NSDictionary *snapshot,NSArray<NSDictionary *> *items,NSError **error);
+NSDictionary *TMCStorageCleanItemsProgress(NSDictionary *snapshot,NSArray<NSDictionary *> *items,NSProgress *progress,void(^changed)(NSDictionary *state),NSError **error);
 #if __has_include(<UIKit/UIKit.h>)
 #import <UIKit/UIKit.h>
 UIViewController *TMCStorageController(void);

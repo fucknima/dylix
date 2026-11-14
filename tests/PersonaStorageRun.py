@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix='dylix-storage-regression-') as tmp:
               name + ': byte-exact original snapshot')
         check(backups[0].stat().st_mode & 0o777 == 0o600, name + ': private snapshot permissions')
         written = path.read_bytes()
-        check(json.loads(written)['schemaVersion'] == 2, name + ': legacy-compatible envelope')
+        check(json.loads(written)['schemaVersion'] == 3, name + ': v3 additive envelope')
         check(run(path) == result and path.read_bytes() == written and
               len(list((folder / 'MigrationBackups').glob('*.json'))) == 1,
               name + ': reopening does not rewrite or create duplicate snapshots')

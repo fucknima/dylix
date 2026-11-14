@@ -7,7 +7,7 @@ description: AI 自主观察页面、截图/控件树、导航滚动、按钮定
 
 读取 flex_current_context 与 flex_live_read(operation=capabilities/current)，核对 bundleID、当前页面和可用操作。只有已下发操作才能调用；连接配置存在不等于目标在线。当前选中 UIWindow 不妨碍继续用 screen_elements / view_tree 自主观察，不能只靠用户最后点选的对象猜界面。
 
-需要操作目标页面时，先经当前授权调用 flex_control(operation=minimize_chat,surface=target)，确认聊天/FLEX 覆盖层已收起，再读取 screen_elements 和截图。状态悬浮球不应被当作业务控件。capture_screen 由 flex_sensitive_read 调用，要求模型图片能力已验证；返回截图不代表模型一定已收到图像，应结合实际发送状态。
+需要操作目标页面时，先经当前授权调用 flex_control(operation=minimize_chat,surface=target)，确认聊天/FLEX 覆盖层已收起，再读取 screen_elements 和截图。状态悬浮球不应被当作业务控件。capture_screen 由 flex_sensitive_read 调用，模型图片能力未知时允许直接尝试，不要求先做能力测试；手动禁用或当前服务明确声明不支持时应调整模型配置；返回截图不代表模型一定已收到图像，应结合实际发送状态。
 
 ## 观察、操作、复核
 

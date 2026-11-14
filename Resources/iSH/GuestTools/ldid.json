@@ -1,0 +1,79 @@
+{
+  "name": "ldid",
+  "version": "2.1.5-procursus7",
+  "source": "https://github.com/ProcursusTeam/ldid",
+  "revision": "af86971ae72ec3ed3d0a699107c4e882324c941b",
+  "license": "AGPL-3.0-or-later",
+  "sourceArchiveSHA256": "26be4e97a9c0bf608e1b7b301bf1e51cdb77e6069bf20981f615923cc080b1b1",
+  "sha256": "98c15d54fbd87789d4be4f1ac25631860bd22830442b5adea225fc3de38d8909",
+  "architecture": "aarch64-linux-musl",
+  "buildDependencies": [
+    {
+      "name": "gcc",
+      "file": "gcc-14.2.0-r4.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/gcc-14.2.0-r4.apk",
+      "sha256": "f9fa19072d1f1a4f72631f3fd090a85a48b95fa08b2062630ea96813275e130f"
+    },
+    {
+      "name": "libcrypto3",
+      "file": "libcrypto3-3.3.7-r2.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/libcrypto3-3.3.7-r2.apk",
+      "sha256": "2303cca13dc8bba5798744a68abd07530abb35ab339d9cc4640fc53276049af0"
+    },
+    {
+      "name": "libgcc",
+      "file": "libgcc-14.2.0-r4.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/libgcc-14.2.0-r4.apk",
+      "sha256": "7cfdc00f102d3b98fe563b31e7a59a7b7ab61850c1751915f34e419e83ef2653"
+    },
+    {
+      "name": "libstdc++",
+      "file": "libstdc++-14.2.0-r4.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/libstdc++-14.2.0-r4.apk",
+      "sha256": "93dded5af4e42ca59a2e981ffc5acc59c5d7110cec4adaeb15b84dc224526b63"
+    },
+    {
+      "name": "libstdc++-dev",
+      "file": "libstdc++-dev-14.2.0-r4.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/libstdc++-dev-14.2.0-r4.apk",
+      "sha256": "b347c2689cb1815510419dd68918c20649f48b0a7e665fea4cd8155dfa7adc9c"
+    },
+    {
+      "name": "musl",
+      "file": "musl-1.2.5-r12.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/musl-1.2.5-r12.apk",
+      "sha256": "f37e73d41880bbc653b771c7d8962c8739bff773503f5155c14fab1bd7c4d52f"
+    },
+    {
+      "name": "musl-dev",
+      "file": "musl-dev-1.2.5-r12.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/musl-dev-1.2.5-r12.apk",
+      "sha256": "638945ad611696b7be27f46c4839a3f487ccd1479b648dfe5e2bc87c4710d587"
+    },
+    {
+      "name": "openssl-dev",
+      "file": "openssl-dev-3.3.7-r2.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/main/aarch64/openssl-dev-3.3.7-r2.apk",
+      "sha256": "9727bcd663e03ce338bdb3420da2e87f634112bffe59bbbe6090dde79c3d3959"
+    },
+    {
+      "name": "libplist",
+      "file": "libplist-2.6.0-r1.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/community/aarch64/libplist-2.6.0-r1.apk",
+      "sha256": "273c54c3c02c4c057ae706ebc574c28d2cca3b44e059eb5dcd35f8819f75f8e6"
+    },
+    {
+      "name": "libplist-dev",
+      "file": "libplist-dev-2.6.0-r1.apk",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.21/community/aarch64/libplist-dev-2.6.0-r1.apk",
+      "sha256": "1a4937ddc242c6068e63bb4b9631b7a8247f0da1c1f6e6a9ceefc7b4bb64662c"
+    }
+  ],
+  "runtimeDependencies": [
+    "libstdc++",
+    "libcrypto3",
+    "libplist",
+    "musl"
+  ],
+  "note": "Separate standalone guest executable; no source linked into Dylix. Matching source archive and license bundled."
+}

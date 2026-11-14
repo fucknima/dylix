@@ -14,6 +14,9 @@ FOUNDATION_EXPORT UIViewController *TFAISessionHomeController(NSString * _Nullab
 - (void)setNextConnection:(nullable NSDictionary *)connection;
 - (void)setInteractionMode:(NSString *)mode; // ask (read tools only) | develop (existing approval)
 - (void)setRemoteExecution:(BOOL)remote; // Remote approval is not phone-native confirmation.
+@optional
+- (void)applicationReturnedToForeground;
+- (BOOL)enqueueUserMessage:(NSDictionary *)message; // Queued at the next safe tool/request boundary.
 @end
 // UI owns configure existing factory result before loading view. session = selected record, no new empty session.
 FOUNDATION_EXPORT UIViewController *TFAIConfigureChat(UIViewController *controller, NSDictionary *session, BOOL standalone, void (^associate)(NSDictionary *));

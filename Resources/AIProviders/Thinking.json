@@ -8,9 +8,57 @@
     "xhigh": "极高",
     "ultra": "Ultra",
     "max": "最高",
-    "enabled": "开启思考"
+    "enabled": "开启思考",
+    "none": "关闭思考"
   },
   "rules": [
+    {
+      "modelPattern": "^claude-opus-(?:4-[6-9]|[5-9])",
+      "protocols": [
+        "anthropic"
+      ],
+      "levels": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ]
+    },
+    {
+      "modelPattern": "^claude-(?:(?:sonnet|opus)-4-[6-9]|(?:sonnet|opus)-[5-9])",
+      "protocols": [
+        "anthropic"
+      ],
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "modelPattern": "^claude-(?:3[.-]7|(?:sonnet|opus|haiku)-4)",
+      "protocols": [
+        "anthropic"
+      ],
+      "levels": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "modelPattern": "^(?:deepseek-reasoner|deepseek-r1)(?:$|-)",
+      "levels": []
+    },
+    {
+      "modelPattern": "^(glm-4\\.[567]|kimi-k2\\.5)",
+      "protocols": [
+        "chat"
+      ],
+      "levels": [
+        "enabled"
+      ]
+    },
     {
       "modelPattern": "^gemini-2\\.5",
       "levels": [

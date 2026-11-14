@@ -191,10 +191,10 @@ static NSDictionary *Error(NSInteger status,NSString *code,NSString *message){re
  if(![self.state isEqual:@"running"])return Error(503,@"stopped",@"服务已暂停或停止");
  if(![self.snapshot[@"protectedDataAvailable"] boolValue]&&[path hasPrefix:@"/api/v1/"]&&![path isEqual:@"/api/v1/status"])return Error(423,@"device_locked",@"设备受保护数据暂不可用，请解锁手机后重试");
  // Fixed allowlist: URL input is never appended to an app document path.
- NSDictionary *assets=@{@"/":@[@"index.html",@"text/html; charset=utf-8"],@"/app-icon.png":@[@"app-icon.png",@"image/png"],@"/remote.css":@[@"remote.css",@"text/css; charset=utf-8"],@"/highlight.js":@[@"highlight.js",@"text/javascript; charset=utf-8"],@"/remote.js":@[@"remote.js",@"text/javascript; charset=utf-8"]};
+ NSDictionary *assets=@{@"/terminal/xterm.js":@[@"xterm.js",@"text/javascript; charset=utf-8",@"Terminal"],@"/terminal/addon-fit.js":@[@"addon-fit.js",@"text/javascript; charset=utf-8",@"Terminal"],@"/terminal/xterm.css":@[@"xterm.css",@"text/css; charset=utf-8",@"Terminal"],@"/":@[@"index.html",@"text/html; charset=utf-8"],@"/app-icon.png":@[@"app-icon.png",@"image/png"],@"/remote.css":@[@"remote.css",@"text/css; charset=utf-8"],@"/highlight.js":@[@"highlight.js",@"text/javascript; charset=utf-8"],@"/remote.js":@[@"remote.js",@"text/javascript; charset=utf-8"]};
  if(assets[path]){
   if(![@[@"GET",@"HEAD"] containsObject:method])return Error(405,@"method_not_allowed",@"静态资源仅支持 GET / HEAD");
-  NSArray *asset=assets[path];NSData *data=[NSData dataWithContentsOfFile:[[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:@"RemoteWeb"] stringByAppendingPathComponent:asset[0]]];
+  NSArray *asset=assets[path];NSData *data=[NSData dataWithContentsOfFile:[[NSBundle.mainBundle.resourcePath stringByAppendingPathComponent:asset.count>2?asset[2]:@"RemoteWeb"] stringByAppendingPathComponent:asset[0]]];
   return data?@{@"status":@200,@"type":asset[1],@"body":data}:Error(503,@"missing_resource",@"工作台资源缺失");
  }
  if([self.assetPaths containsObject:path]&&[path hasPrefix:@"/monaco/"]&&[@[@"GET",@"HEAD"] containsObject:method]){

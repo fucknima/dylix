@@ -1,6 +1,6 @@
 # Local build outputs and secrets
 /build/
-/Vendor/*.xcframework/
+/Vendor/*.xcframework
 /Vendor/REipa/target/
 /.local/
 *.ipa
@@ -19,3 +19,7 @@ __pycache__/
 /Plugins/FLEX/packages/
 /Plugins/FLEX/*.deb
 /Plugins/FLEX/*.dylib
+
+# Optional tools are downloaded separately; never commit local resource archives.
+/Resources/iSH/developer-tools.tar
+/Resources/iSH/reverse-tools.tar

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "developer-tools",
+    "title": "开发工具",
+    "file": "developer-tools-8cd9837844908fea.tar",
+    "bytes": 142069760,
+    "sha256": "8cd9837844908fea8e8fa29d3850c20951be61847604b816af99056bac844870",
+    "url": "https://dylib.cn/downloads/dylix/v1/developer-tools-8cd9837844908fea.tar"
+  },
+  {
+    "id": "reverse-tools",
+    "title": "逆向分析工具",
+    "file": "reverse-tools-8b4a5013ac2196c0.tar",
+    "bytes": 30576640,
+    "sha256": "8b4a5013ac2196c064c2648d4259e821d0ad8e15d06386e6217b163820f6bae6",
+    "url": "https://dylib.cn/downloads/dylix/v1/reverse-tools-8b4a5013ac2196c0.tar"
+  },
+  {
+    "id": "sdk26",
+    "title": "iOS 26.0 SDK",
+    "file": "sdk26-3671d08c6cc54298.zip",
+    "bytes": 43195711,
+    "sha256": "3671d08c6cc54298517126494b38dab4829fd8235ba240ba913d74a17f71def7",
+    "url": "https://dylib.cn/downloads/dylix/v1/sdk26-3671d08c6cc54298.zip"
+  }
+]
