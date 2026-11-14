@@ -84,6 +84,18 @@ jobs:
           restore-keys: cargo-${{ runner.os }}-
       - name: Download pinned SDK-free toolchain
         run: python3 scripts/fetch_toolchain.py
+      - name: Cache iSH package downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/dylix-alpine-official
+            /tmp/dylix-alpine-reverse
+          key: ish-packages-${{ hashFiles('scripts/fetch_ish_packages.py', 'scripts/fetch_reverse_tools.py', 'Resources/iSH/reverse-tools.json') }}
+          restore-keys: ish-packages-
+      - name: Fetch iSH developer tools
+        run: python3 scripts/fetch_ish_packages.py
+      - name: Fetch iSH reverse tools
+        run: python3 scripts/fetch_reverse_tools.py
       - name: Build ad-hoc-signed device IPA
         run: python3 scripts/build.py --sdk-root LocalSDKs/iPhoneOS26.0.sdk --identity -
       - name: Validate and rename IPA
