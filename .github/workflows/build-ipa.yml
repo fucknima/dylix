@@ -3,6 +3,11 @@ name: Build unsigned IPA
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - 'README.md'
+      - 'scripts/test_opencode_go_patch.py'
+      - 'scripts/apply_opencode_go_patch.py'
   workflow_dispatch:
 
 permissions:

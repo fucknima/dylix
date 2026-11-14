@@ -2,7 +2,7 @@ name: Sync upstream and rebuild
 
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -36,14 +36,42 @@ jobs:
             echo '本仓库已包含上游最新提交。'
             exit 0
           fi
-          # Real merge preserves both upstream history and OpenCode Go custom changes.
           # Never use -X theirs, reset --hard or force push.
-          if ! git merge --no-edit --no-ff FETCH_HEAD; then
+          if ! git merge --no-commit --no-ff FETCH_HEAD; then
             git status --short
+            conflicted="$(git diff --name-only --diff-filter=U)"
+            if [ -z "$conflicted" ]; then
+              echo '合并失败且没有冲突文件，停止。' >&2
+              git merge --abort || true
+              exit 1
+            fi
+            for f in $conflicted; do
+              case "$f" in
+                App/AI/Transport/TFAITransport.m|App/AI/Providers/TFAIProtocol.m|App/AI/Core/AIRuntime.m|App/AI/UI/TFAISettings.m|Resources/AIProviders/Providers.json|README.md)
+                  echo "冲突文件由 OpenCode Go 补丁重建：$f"
+                  git checkout --theirs -- "$f" ;;
+                *)
+                  echo "未预期的冲突文件：$f；停止，不覆盖。" >&2
+                  git merge --abort || true
+                  exit 1 ;;
+              esac
+            done
+            git add -A
+          fi
+          # Re-apply the fork patch on the merged tree. Idempotent when intact;
+          # exits non-zero when an upstream anchor moved, leaving main untouched.
+          if ! python3 scripts/apply_opencode_go_patch.py; then
+            echo '上游锚点已变化，补丁无法重放：停止，未提交合并。' >&2
             git merge --abort || true
-            echo '上游合并冲突：未推送，保持主分支不变，请人工解决。' >&2
             exit 1
           fi
+          if ! python3 scripts/test_opencode_go_patch.py; then
+            echo '合并后的静态检查失败：停止，未提交合并。' >&2
+            git merge --abort || true
+            exit 1
+          fi
+          git add -A
+          git commit --no-edit
           git push origin HEAD:main
           echo 'changed=true' >> "$GITHUB_OUTPUT"
       - name: Trigger a fresh IPA build after token-authored merge
