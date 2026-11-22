@@ -13,6 +13,13 @@ static void Cache252Tests(void){
  proxy[@"baseURL"]=@"https://api.anthropic.com.example/v1";Check([TFAIRequestBody(m,proxy,@[],NO,&error)[@"system"] isKindOfClass:NSString.class],@"host suffix lookalike is not official");
  proxy=[c mutableCopy];proxy[@"_probeToolName"]=@"probe_ping";Check([TFAIRequestBody(m,proxy,@[],NO,&error)[@"system"] isKindOfClass:NSString.class],@"capability probe remains unchanged");
  for(NSString *protocol in @[@"chat",@"responses",@"gemini"]){NSMutableDictionary *connection=[c mutableCopy];connection[@"protocol"]=protocol;connection[@"model"]=@"fixture";NSDictionary *enabled=TFAIRequestBody(m,connection,@[],NO,&error);[d setBool:NO forKey:@"Dylix.AI.AnthropicCache"];NSDictionary *disabled=TFAIRequestBody(m,connection,@[],NO,&error);Check([enabled isEqual:disabled],[@"cache setting does not alter " stringByAppendingString:protocol]);[d setBool:YES forKey:@"Dylix.AI.AnthropicCache"];}
+ NSArray *history=@[@{@"role":@"system",@"content":@"Stable policy"},@{@"role":@"user",@"content":@"original request",@"_cacheBoundary":@YES},@{@"role":@"assistant",@"content":@"Transient environment"}];
+ NSDictionary *historyBody=TFAIRequestBody(history,c,@[],NO,&error);
+ Check([historyBody[@"messages"][0][@"content"][0][@"cache_control"][@"type"] isEqual:@"ephemeral"],@"official cache checkpoint covers immutable history");
+ Check(!historyBody[@"messages"][1][@"content"][0][@"cache_control"],@"transient environment is beyond cache checkpoint");
+ Check(!historyBody[@"messages"][0][@"_cacheBoundary"],@"local boundary metadata never leaks onto wire");
+ NSMutableDictionary *gateway=[c mutableCopy];gateway[@"baseURL"]=@"https://proxy.example/v1";
+ Check(!TFAIRequestBody(history,gateway,@[],NO,&error)[@"messages"][0][@"content"][0][@"cache_control"],@"proxy receives no history cache fields");
  Check([off[@"max_tokens"] isEqual:on[@"max_tokens"]],@"optimization never lowers output limit");[d removeObjectForKey:@"Dylix.AI.AnthropicCache"];
 }
 int main(int argc,char **argv){@autoreleasepool{Cache252Tests();}return LegacyProviderMain(argc,argv);}

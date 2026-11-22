@@ -55,7 +55,7 @@ static NSMutableDictionary *Normalize(id obj,NSString *scope){
  return record;
 }
 static NSDictionary *MakeSummary(NSDictionary *record,NSString *scope){
- NSMutableDictionary *summary=[NSMutableDictionary new];for(NSString *key in @[@"id",@"title",@"updatedAt",@"createdAt",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"state",@"mode"]){id v=record[key];if(v)summary[key]=v;}
+ NSMutableDictionary *summary=[NSMutableDictionary new];for(NSString *key in @[@"id",@"title",@"updatedAt",@"createdAt",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"workspaceID",@"state",@"mode"]){id v=record[key];if(v)summary[key]=v;}
  if([summary[@"title"] hasSuffix:@" · 编辑前"]){NSString *title=summary[@"title"];summary[@"title"]=[@"[编辑前备份] " stringByAppendingString:[title substringToIndex:title.length-6]];}
  summary[@"storageProjectID"]=scope;summary[@"schemaVersion"]=@2;summary[@"messageCount"]=@([record[@"messages"] count]);
  NSString *preview=@"尚未发送消息";for(NSDictionary *m in [record[@"messages"] reverseObjectEnumerator])if([m isKindOfClass:NSDictionary.class]&&[@[@"assistant",@"user"] containsObject:m[@"role"]]&&[m[@"content"] isKindOfClass:NSString.class]&&[m[@"content"] length]){preview=m[@"content"];NSRange context=[preview rangeOfString:@"<project_context>"];if(context.location!=NSNotFound)preview=[preview substringToIndex:context.location];break;}
@@ -87,7 +87,7 @@ static NSArray *Sorted(NSArray *items){return [items sortedArrayUsingComparator:
  if(storedScope.length&&![storedScope isEqual:projectID]){if(error)*error=AIStoreError(@"会话存储位置与原记录不一致，请从会话列表重新打开；原记录已保留");return NO;}
  NSString *path=SessionPath(projectID,session[@"id"]);if(!path||![session[@"messages"] isKindOfClass:NSArray.class]){if(error)*error=AIStoreError(@"会话标识或消息格式有误");return NO;}
  if([NSFileManager.defaultManager fileExistsAtPath:Tombstone(projectID,session[@"id"])]){if(error)*error=AIStoreError(@"会话已删除，请创建新会话；旧回调不会恢复删除记录");return NO;}
- NSMutableDictionary *safe=[session mutableCopy];NSDictionary *existing=ReadJSON(path);if([existing isKindOfClass:NSDictionary.class]&&[existing[@"metadataRevision"] unsignedLongLongValue]>[safe[@"metadataRevision"] unsignedLongLongValue]){for(NSString *key in @[@"title",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"metadataRevision"]){if(existing[key])safe[key]=existing[key];else[safe removeObjectForKey:key];}}
+ NSMutableDictionary *safe=[session mutableCopy];NSDictionary *existing=ReadJSON(path);if([existing isKindOfClass:NSDictionary.class]&&[existing[@"metadataRevision"] unsignedLongLongValue]>[safe[@"metadataRevision"] unsignedLongLongValue]){for(NSString *key in @[@"title",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"workspaceID",@"metadataRevision"]){if(existing[key])safe[key]=existing[key];else[safe removeObjectForKey:key];}}
  // Remote turns own the transcript, not the native composer's unsent user input.
  if([safe[@"remoteRevision"] unsignedLongLongValue]>[existing[@"remoteRevision"] unsignedLongLongValue])for(NSString *key in @[@"draft",@"pendingAttachments",@"folds",@"permissionPreferences",@"scrollY",@"followBottom"]){if(existing[key])safe[key]=existing[key];}
  // An idle native chat may still hold a snapshot from before a Remote turn.
@@ -150,8 +150,9 @@ static NSArray *Sorted(NSArray *items){return [items sortedArrayUsingComparator:
 }
 + (BOOL)saveMetadata:(NSDictionary *)metadata identifier:(NSString *)identifier project:(NSString *)scope error:(NSError **)error {
  @synchronized(self){NSMutableDictionary *record=[self loadSession:identifier project:scope];if(!record){if(error)*error=AIStoreError(@"会话已删除或不存在");return NO;}
- NSSet *allowed=[NSSet setWithArray:@[@"title",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"draft",@"draftText",@"attachments",@"pendingAttachments",@"scrollOffset",@"folds",@"collapsed",@"mode",@"selectedConnection",@"selectedModel",@"followBottom"]];
- for(NSString *key in metadata){if(![allowed containsObject:key]){if(error)*error=AIStoreError(@"此字段不属于会话显示设置");return NO;}id value=metadata[key];if([@[@"title",@"projectName",@"projectRoot",@"associatedProjectID",@"draft",@"draftText",@"mode",@"selectedModel"] containsObject:key]&&value!=NSNull.null&&![value isKindOfClass:NSString.class]){if(error)*error=AIStoreError(@"会话文字字段格式有误");return NO;}if([@[@"pinned",@"scrollOffset",@"followBottom"] containsObject:key]&&value!=NSNull.null&&![value isKindOfClass:NSNumber.class]){if(error)*error=AIStoreError(@"会话状态字段格式有误");return NO;}if(value==NSNull.null)[record removeObjectForKey:key];else record[key]=value;}
+ if((metadata[@"associatedProjectID"]||metadata[@"workspaceID"]||metadata[@"projectRoot"])&&TFAISessionHasLiveRun(scope,identifier)){if(error)*error=AIStoreError(@"请先结束当前任务再关联项目");return NO;}
+ NSSet *allowed=[NSSet setWithArray:@[@"title",@"pinned",@"projectName",@"projectRoot",@"associatedProjectID",@"workspaceID",@"draft",@"draftText",@"attachments",@"pendingAttachments",@"scrollOffset",@"folds",@"collapsed",@"mode",@"selectedConnection",@"selectedModel",@"followBottom"]];
+ for(NSString *key in metadata){if(![allowed containsObject:key]){if(error)*error=AIStoreError(@"此字段不属于会话显示设置");return NO;}id value=metadata[key];if([@[@"title",@"projectName",@"projectRoot",@"associatedProjectID",@"workspaceID",@"draft",@"draftText",@"mode",@"selectedModel"] containsObject:key]&&value!=NSNull.null&&![value isKindOfClass:NSString.class]){if(error)*error=AIStoreError(@"会话文字字段格式有误");return NO;}if([@[@"pinned",@"scrollOffset",@"followBottom"] containsObject:key]&&value!=NSNull.null&&![value isKindOfClass:NSNumber.class]){if(error)*error=AIStoreError(@"会话状态字段格式有误");return NO;}if(value==NSNull.null)[record removeObjectForKey:key];else record[key]=value;}
  record[@"metadataRevision"]=@([record[@"metadataRevision"] unsignedLongLongValue]+1);return [self save:record project:scope error:error];}
 }
 @end

@@ -60,8 +60,11 @@ def build(platform, source=None, output=None):
     if not lld: raise SystemExit('Set DYLIX_LLD to LLVM ld.lld (guest ELF linker).')
     bindir = output / 'tools'; bindir.mkdir(exist_ok=True)
     link = bindir / 'ld.lld'
-    if link.is_symlink(): link.unlink()
+    if link.exists() or link.is_symlink(): link.unlink()
     link.symlink_to(Path(lld).resolve())
+    alias = bindir / 'lld'
+    if alias.exists() or alias.is_symlink(): alias.unlink()
+    alias.symlink_to(Path(lld).resolve())
     env['PATH'] = str(bindir) + os.pathsep + env['PATH']
     meson = shutil.which('meson')
     ninja = shutil.which('ninja')

@@ -12,9 +12,9 @@ iPhone / iPad 本机构建 · AI 开发助手 · 项目与 Git · 二进制工�
 
 </div>
 
-当前版本：**1.1.3（272）**，配套 **FLEX 插件 1.0.3**。本次改进上下文保留、定向历史读取、重复纠偏和回答风格，支持仅导出会话或携带附件导出；新增多档预算与真实 API 对照验证。终端工具与 iOS 26 SDK 按需安装。
+当前版本：**1.1.4（284）**，配套 **FLEX 插件 1.0.3**。改进上下文与缓存、消息续接和任务补充，修复原会话关联项目，完善聊天展示，并使用 Xcode 自带 iOS 27.2 SDK 构建。
 
-[1.1.3 更新内容](docs/RELEASE_1.1.3.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_DYLIX_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
+[1.1.4 更新内容](docs/RELEASE_1.1.4.md) · [服务商与 Agent](docs/AGENT_EXTENSIONS.md) · [FLEX 联动](docs/FLEX_DYLIX_BRIDGE.md) · [连接传输](docs/CONNECTION_TRANSPORT.md)。
 
 ## 这是什么
 

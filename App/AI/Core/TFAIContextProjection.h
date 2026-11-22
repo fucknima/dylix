@@ -12,3 +12,9 @@
 + (BOOL)containsPlaceholder:(id)value;
 + (NSString *)usageReport:(NSDictionary *)statistics providerUsage:(NSDictionary *)usage;
 @end
+
+// Per-run frozen network history. Original transcripts remain the source of truth.
+// A new checkpoint is built only under budget pressure or after a prefix change.
+@interface TFAIContextSessionProjection : NSObject
+- (NSArray *)project:(NSArray *)messages transient:(NSArray *)transient connection:(NSDictionary *)connection schemas:(NSArray *)schemas statistics:(NSDictionary **)statistics error:(NSError **)error;
+@end

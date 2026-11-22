@@ -868,6 +868,34 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 @property(nonatomic) UIWindow *window;
 @property(nonatomic) BOOL restoringData;
 @property(nonatomic) NSURL *pendingRestoreURL;
+@property(nonatomic) BOOL interfaceStarted;
+- (BOOL)startInterfaceWithOptions:(NSDictionary *)options;
+@end
+
+// UIKit owns the window lifecycle; retain the same window during data restoration.
+@interface DylixSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property(nonatomic, strong) UIWindow *window;
+@end
+@implementation DylixSceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    if (![scene isKindOfClass:UIWindowScene.class]) return;
+    AppDelegate *app = (AppDelegate *)UIApplication.sharedApplication.delegate;
+    if (!app.window) app.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
+    else app.window.windowScene = (UIWindowScene *)scene;
+    self.window = app.window;
+    [app startInterfaceWithOptions:@{}];
+    for (UIOpenURLContext *context in options.URLContexts)
+        [app application:UIApplication.sharedApplication openURL:context.URL options:@{}];
+}
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)contexts {
+    AppDelegate *app = (AppDelegate *)UIApplication.sharedApplication.delegate;
+    for (UIOpenURLContext *context in contexts)
+        [app application:UIApplication.sharedApplication openURL:context.URL options:@{}];
+}
+- (void)sceneDidBecomeActive:(UIScene *)scene {
+    AppDelegate *app = (AppDelegate *)UIApplication.sharedApplication.delegate;
+    [app applicationDidBecomeActive:UIApplication.sharedApplication];
+}
 @end
 @implementation AppDelegate
 - (void)openBuildQueueFromNotification:(NSNotification *)note{UIViewController *root=self.window.rootViewController;if(root.presentedViewController)return;if([root isKindOfClass:UITabBarController.class])root=[(UITabBarController *)root selectedViewController];if([root isKindOfClass:UINavigationController.class])[(UINavigationController *)root pushViewController:TFAIBuildQueueController() animated:YES];}
@@ -875,11 +903,18 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 - (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options {if(self.restoringData){self.pendingRestoreURL=url;return YES;}if(url.isFileURL){TFIncomingReceive(self.window.rootViewController,url);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"ai"]){TMCOpenAIConversation(self.window.rootViewController,nil,nil);return YES;}if(([url.scheme isEqual:@"tweakforge"]||[url.scheme isEqual:@"dylix"])&&[url.host isEqual:@"incoming"]){TFIncomingDrain(self.window.rootViewController);return YES;}return NO;}
 - (void)applicationDidBecomeActive:(UIApplication *)application {if(!self.restoringData)TFIncomingDrain(self.window.rootViewController);}
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+    // BGTask handlers must be registered before this method returns, before scene connection.
+    TFAIBackgroundRegister();
+    return YES;
+}
+- (BOOL)startInterfaceWithOptions:(NSDictionary *)options {
+    if (self.interfaceStarted) return YES;
+    self.interfaceStarted = YES;
     NSString *pending=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/DylixRestore/pending.json"];
     if(![NSFileManager.defaultManager fileExistsAtPath:pending])return [self finishLaunching:options];
     self.restoringData=YES;
     // Return to UIKit immediately: large restores must not trigger the launch watchdog.
-    self.window=[[UIWindow alloc]initWithFrame:UIScreen.mainScreen.bounds];
+    NSAssert(self.window.windowScene, @"A connected UIWindowScene is required before startup");
     UIViewController *loading=[UIViewController new];loading.view.backgroundColor=UIColor.systemBackgroundColor;
     UILabel *label=[UILabel new];label.text=@"正在恢复 Dylix 数据，请勿关闭应用";label.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];label.translatesAutoresizingMaskIntoConstraints=NO;
     UIActivityIndicatorView *spinner=[[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];spinner.translatesAutoresizingMaskIntoConstraints=NO;[spinner startAnimating];
@@ -891,9 +926,9 @@ extern UIViewController *TMCStorageBackup258Regression(void);
 }
 - (BOOL)finishLaunching:(NSDictionary *)options {
     [DXRemoteService shared];
-    TFAIBackgroundRegister();TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
+    TFAINotificationsRegister();[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openBuildQueueFromNotification:) name:@"TFAIOpenBuildQueue" object:nil];[NSNotificationCenter.defaultCenter addObserver:self selector:@selector(openAIFromNotification:) name:@"TFAIOpenConversation" object:nil];
     [NSUserDefaults.standardUserDefaults registerDefaults:@{@"StudioTheme":@1, @"StudioFont":@14, @"StudioSDKVersion":@"16.4", @"StudioDeploymentTarget":@"15.0"}];
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+    NSAssert(self.window.windowScene, @"A connected UIWindowScene is required before startup");
     self.window.tintColor=[UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait){return trait.userInterfaceStyle==UIUserInterfaceStyleDark?[UIColor colorWithRed:.93 green:.77 blue:.52 alpha:1]:[UIColor colorWithRed:.45 green:.30 blue:.10 alpha:1];}];
     NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{TMCPrepareDocumentPresentation(documents);});

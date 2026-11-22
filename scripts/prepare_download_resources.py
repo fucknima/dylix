@@ -21,6 +21,12 @@ def prepare(stage=None):
         ('reverse-tools', '逆向分析工具', ROOT / 'Resources/iSH/reverse-tools.tar'),
         ('sdk26', 'iOS 26.0 SDK', ROOT / 'build/embedded-SDK26.zip'),
     ]:
+        if not path.is_file():
+            pinned = next(row for row in json.loads((ROOT / 'Resources/DownloadResources.json').read_text()) if row['id'] == identifier)
+            if stage:
+                raise FileNotFoundError(f'Staging requires the archive: {path}')
+            rows.append(pinned)
+            continue
         sha = digest(path)
         filename = f'{identifier}-{sha[:16]}{path.suffix}'
         rows.append(dict(id=identifier, title=title, file=filename,

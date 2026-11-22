@@ -26,6 +26,8 @@ static NSDictionary *FixtureLastConnection;
 static NSMutableArray *FixturePolicyConfigurations;
 static BOOL FixtureRequireApproval;static NSUInteger FixtureChildApprovals;
 static void(^FixtureTransport)(NSArray *,NSArray *,TFAIEvent);
+static void(^FixtureToolExecution)(NSDictionary *,TFAIResult);
+static NSUInteger FixtureTransportCancels;
 static NSDictionary *FixtureContextOverrides;
 static NSArray *FixtureToolSchemas;
 static NSArray *FixtureIsolationSchemas;
@@ -35,7 +37,7 @@ static NSUInteger fixturePolicyRevokes,fixturePlanClears;
 static NSUInteger requests,executions;static NSString *mode;static NSMutableArray *events;static NSDictionary *terminal;
 static void Check(BOOL yes,NSString *name){if(!yes){NSLog(@"FAIL %@",name);exit(1);}NSLog(@"PASS %@",name);}
 @implementation TFAITransport
-- (void)cancel{}
+- (void)cancel{FixtureTransportCancels++;}
 - (void)send:(NSArray *)messages connection:(NSDictionary *)connection tools:(NSArray *)tools event:(TFAIEvent)event{requests++;FixtureLastConnection=connection;if(FixtureTransport){FixtureTransport(messages,tools,event);return;}if([mode isEqual:@"persona"]){[personaCaptured addObject:@{@"messages":[messages copy],@"tools":[tools copy]}];event(@{@"type":@"text",@"text":@"fixture reply"});event(@{@"type":@"done"});return;}if([mode isEqual:@"empty"]){event(@{@"type":@"done"});return;}if([mode isEqual:@"wait"])return;Check(tools.count>0,@"tools remain available beyond old count limits");
  if(requests>40){for(NSDictionary *m in messages)for(NSDictionary *c in m[@"tool_calls"]){NSUInteger matched=0;for(NSDictionary *r in messages)if([r[@"tool_call_id"] isEqual:c[@"id"]])matched++;Check(matched==1,@"each tool has exactly one result");}event(@{@"type":@"text",@"text":@"分析完成。"});event(@{@"type":@"done"});return;}
  NSUInteger count=[mode isEqual:@"batch"]?30:1;for(NSUInteger i=0;i<count;i++)event(@{@"type":@"tool_call",@"id":[NSString stringWithFormat:@"call-%lu-%lu",requests,i],@"name":@"read_file",@"arguments":@{@"path":@"Fixture.m"}});event(@{@"type":@"done"});}
@@ -47,7 +49,7 @@ static void Check(BOOL yes,NSString *name){if(!yes){NSLog(@"FAIL %@",name);exit(
 - (void)setBridge:(void(^)(NSString *,NSDictionary *,TFAIResult))b{}
 - (void)prepare:(NSDictionary *)request completion:(TFAIResult)done{done(@{@"request":request,@"readOnly":@YES},nil);}
 - (void)setApprovalContext:(NSString *)context{}
-- (void)execute:(NSDictionary *)plan approved:(BOOL)approved completion:(TFAIResult)done{executions++;done(@{@"text":[NSString stringWithFormat:@"fixture-%lu",(unsigned long)executions]},nil);}
+- (void)execute:(NSDictionary *)plan approved:(BOOL)approved completion:(TFAIResult)done{executions++;if(FixtureToolExecution){FixtureToolExecution(plan,done);return;}done(@{@"text":[NSString stringWithFormat:@"fixture-%lu",(unsigned long)executions]},nil);}
 - (void)selectEdits:(NSArray *)a plan:(NSDictionary *)p completion:(TFAIResult)c{c(p,nil);}
 - (void)undo:(TFAIResult)c{c(@{},nil);}
 @end

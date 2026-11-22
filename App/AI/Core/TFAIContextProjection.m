@@ -220,7 +220,7 @@ static BOOL VisiblePage(id node,NSDictionary *page,NSUInteger depth){
  // guard must not rehydrate old observations up to that guard on each request.
  // System/user/schema, pending batches, the newest two complete tool batches,
  // the latest plain reply and opaque native continuation are protected here.
- const NSUInteger historyTarget=MIN(64*1024,MAX(16*1024,ContextBudget/4));
+ const NSUInteger historyTarget=[connection[@"_stableProjection"] boolValue]?MAX(32*1024,ContextBudget/2):MIN(64*1024,MAX(16*1024,ContextBudget/4));
  NSMutableIndexSet *eligible=[NSMutableIndexSet new];NSUInteger latestPlain=plainAssistants.lastIndex;
  NSMutableArray *oldGroups=[NSMutableArray new];
  for(NSUInteger g=0;g+2<groups.count;g++){
@@ -330,5 +330,47 @@ static BOOL VisiblePage(id node,NSDictionary *page,NSUInteger depth){
  if(statistics)*statistics=@{@"beforeTextJSONBytes":@(rawBefore),@"unusedProviderReplayBytesOmitted":@(replayOmitted),@"afterTextJSONBytes":@(after),@"budgetBytes":@(ContextBudget),@"estimatedTextTokens":@((after+1)/2),@"estimateOnly":@YES,@"imageTokensIncluded":@NO,@"toolBreakdown":breakdown,@"afterCompositionBytes":composition,@"blockedBeforeRequest":@(after>ContextBudget),@"argumentCallsOffloaded":@(argumentsOffloaded),@"resultsOffloaded":@(resultsOffloaded),@"toolBatchesCollapsed":@(collapsed),@"assistantMessagesOffloaded":@(assistantOffloaded),@"historyTargetBytes":@(historyTarget),@"historyRetainedBytes":@(retainedHistory),@"historyTargetReached":@(retainedHistory<=historyTarget),@"proactiveToolBatchesCollapsed":@(proactiveCollapsed),@"recentToolBatchesKept":@(MIN((NSUInteger)2,groups.count)),@"historyBatchesArchived":@(archivedBatches),@"workingSetBytes":@(workingBytes),@"recentOriginalBatchesKept":@(decisionTail.count),@"pressureResultsPreviewed":@(pressureResults),@"workingSetPlacement":@"near_tail",@"contextPolicyVersion":@271};
  if(after>ContextBudget){if(error)*error=Failure([NSString stringWithFormat:@"本次未发送：清理未使用的推理副本并整理可回读历史后仍为 %.1f KiB，超过应用的 %lu KiB 文本保护预算。用户要求、系统提示及工具定义不会被静默删掉。可查看“上下文用量”的整理后构成，精简大段输入或另开会话；完整记录保留。这不是模型报告的窗口已满。",after/1024.0,(unsigned long)(ContextBudget/1024)]);return nil;}
  return out;
+}
+@end
+
+@interface TFAIContextSessionProjection ()
+@property NSArray *sourceDigests;
+@property NSArray *frozenMessages;
+@property NSString *configurationDigest;
+@property NSUInteger checkpointCount;
+@end
+@implementation TFAIContextSessionProjection
+- (NSArray *)project:(NSArray *)messages transient:(NSArray *)transient connection:(NSDictionary *)connection schemas:(NSArray *)schemas statistics:(NSDictionary **)statistics error:(NSError **)error {
+ NSUInteger budget=TFAIContextProjection.budgetKiB*1024, omitted=0;
+ NSMutableArray *wire=[NSMutableArray new], *digests=[NSMutableArray new], *tail=[NSMutableArray new];
+ for(NSDictionary *m in messages){NSDictionary *v=ReplayMessage(m,connection,&omitted);[wire addObject:v];[digests addObject:Digest(JSON(v))];}
+ for(NSDictionary *m in transient)[tail addObject:ReplayMessage(m,connection,&omitted)];
+ NSString *configuration=Digest(JSON(@{ @"connection":connection?:@{}, @"schemas":schemas?:@[], @"budget":@(budget)}));
+ BOOL reusable=[configuration isEqual:self.configurationDigest]&&self.sourceDigests.count<=digests.count&&self.frozenMessages!=nil;
+ if(reusable)for(NSUInteger i=0;i<self.sourceDigests.count;i++)if(![self.sourceDigests[i] isEqual:digests[i]]){reusable=NO;break;}
+ NSMutableArray *candidate=reusable?[self.frozenMessages mutableCopy]:[wire mutableCopy];
+ if(reusable)[candidate addObjectsFromArray:[wire subarrayWithRange:NSMakeRange(self.sourceDigests.count,wire.count-self.sourceDigests.count)]];
+ NSMutableArray *combined=[candidate mutableCopy];[combined addObjectsFromArray:tail];
+ BOOL pressure=Measure(combined,schemas)>budget*85/100;
+ NSMutableDictionary *stats=[NSMutableDictionary new];BOOL checkpoint=NO;
+ if(pressure){
+  NSDictionary *compactStats=nil;NSMutableDictionary *config=[connection mutableCopy]?:[NSMutableDictionary new];config[@"_stableProjection"]=@YES;
+  NSArray *compacted=[TFAIContextProjection project:messages connection:config schemas:schemas statistics:&compactStats error:error];
+  if(!compacted){if(statistics)*statistics=compactStats;return nil;}
+  candidate=[compacted mutableCopy];combined=[candidate mutableCopy];[combined addObjectsFromArray:tail];
+  if(compactStats)[stats addEntriesFromDictionary:compactStats];checkpoint=YES;
+ }
+ NSUInteger after=Measure(combined,schemas);
+ stats[@"beforeTextJSONBytes"]=@(Measure(wire,schemas));stats[@"afterTextJSONBytes"]=@(after);stats[@"budgetBytes"]=@(budget);
+ stats[@"estimatedTextTokens"]=@((after+1)/2);stats[@"estimateOnly"]=@YES;stats[@"imageTokensIncluded"]=@NO;
+ stats[@"afterCompositionBytes"]=Composition(combined,schemas);stats[@"blockedBeforeRequest"]=@(after>budget);
+ stats[@"projectionPrefixReused"]=@(reusable&&!checkpoint);stats[@"projectionCheckpoint"]=@(checkpoint);
+ stats[@"projectionCheckpointCount"]=@(self.checkpointCount+(checkpoint?1:0));stats[@"contextPolicyVersion"]=@278;
+ if(statistics)*statistics=stats;
+ if(after>budget){if(error)*error=Failure(@"上下文和本轮环境信息超过保护预算；完整记录已保留，请提高保护值或减少本轮输入。");return nil;}
+ self.sourceDigests=[digests copy];self.frozenMessages=[candidate copy];self.configurationDigest=configuration;if(checkpoint)self.checkpointCount++;
+ // Metadata is consumed by the Anthropic builder, never serialized as a message field.
+ if(candidate.count){NSMutableDictionary *boundary=[combined[candidate.count-1] mutableCopy];boundary[@"_cacheBoundary"]=@YES;combined[candidate.count-1]=boundary;}
+ return combined;
 }
 @end

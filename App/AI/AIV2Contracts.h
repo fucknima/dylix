@@ -33,3 +33,5 @@ NS_ASSUME_NONNULL_END
 
 @class UIViewController;
 FOUNDATION_EXPORT void TFAISetSessionOpener(UIViewController *controller,void(^open)(NSDictionary *record));
+
+FOUNDATION_EXPORT void TFAIRebindRuntimeWorkspace(id<TFAIRuntime> _Nonnull runtime, NSString * _Nonnull root);

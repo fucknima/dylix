@@ -73,7 +73,6 @@ commands = {name: [f'{framework}.framework/{framework}', 'main', '', 'no']
 # Keep the complete SDK losslessly compressed, and materialize it in app caches.
 for sdk_version, sdk_root, sdk_stem in [
     ('16.4', ROOT / 'Resources/SDK', 'SDK'),
-    ('26.0', pathlib.Path(os.environ.get('DYLIX_SDK_26_0', str(ROOT.parent / 'SDKDownloads/iOS-SDKs-26/iPhoneOS26.0.sdk'))), 'SDK26'),
 ]:
     metadata = plistlib.loads((sdk_root / 'SDKSettings.plist').read_bytes())
     if metadata.get('Version') != sdk_version:
@@ -93,6 +92,10 @@ for sdk_version, sdk_root, sdk_stem in [
         'version': sdk_version,
         'sha256': hashlib.sha256(sdk_cache.read_bytes()).hexdigest(),
     }))
+# Optional SDK26 is hosted separately; building the App needs only the active Xcode SDK.
+pinned_resources = json.loads((ROOT / 'Resources/DownloadResources.json').read_text())
+pinned_sdk26 = next(row for row in pinned_resources if row['id'] == 'sdk26')
+(app / 'SDK26Resource.plist').write_bytes(plistlib.dumps({'version': '26.0', 'sha256': pinned_sdk26['sha256']}))
 resource_headers = ROOT / 'Resources/ClangInclude'
 shutil.copytree(resource_headers, app / 'ClangInclude', dirs_exist_ok=True)
 perl_config = (ROOT / 'Resources/Perl/Config.pm').read_text()
@@ -109,9 +112,8 @@ ish_rootfs = ROOT / 'Resources' / 'iSH'
 if ish_rootfs.exists():
     for stem, helper in [('developer-tools','fetch_ish_packages.py'),('reverse-tools','fetch_reverse_tools.py')]:
         kit=ish_rootfs/(stem+'.tar');index=ish_rootfs/(stem+'.json')
-        if arch=='arm64' and (not kit.is_file() or not index.is_file()):
-            raise SystemExit('Missing official offline '+stem+'; run scripts/'+helper)
-        if kit.exists() or index.exists():
+        # Optional tool archives are downloaded after installation; validate local copies when present.
+        if kit.is_file():
             manifest=json.loads(index.read_text())
             if manifest.get('architecture')!='aarch64' or hashlib.sha256(kit.read_bytes()).hexdigest()!=manifest.get('sha256'):
                 raise SystemExit('Offline '+stem+' manifest/hash mismatch')
@@ -140,12 +142,22 @@ info = {
     'CFBundleExecutable': 'TheosMobileCompiler', 'CFBundleIdentifier': args.bundle_id,
     'CFBundleName': 'Dylix', 'CFBundleDisplayName': 'Dylix',
     'CFBundleDevelopmentRegion': 'zh-Hans', 'CFBundleLocalizations': ['zh-Hans', 'en'],
-    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.3', 'CFBundleVersion': '272', 'DylixEdition': 'opensource',
+    'NSCameraUsageDescription': '拍摄照片作为您选择发送给模型的参考附件。', 'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': '1.1.4', 'CFBundleVersion': '284', 'DylixEdition': 'opensource',
     'CFBundleDocumentTypes': [{'CFBundleTypeName':'Dylix Files','CFBundleTypeRole':'Editor','LSHandlerRank':'Alternate','LSItemContentTypes':['public.data','public.archive','public.source-code']}],
     'CFBundleURLTypes': [{'CFBundleURLName':'Dylix Incoming','CFBundleURLSchemes':['dylix', 'tweakforge']}],
     'BGTaskSchedulerPermittedIdentifiers': ['com.xuegao.theosmobilecompiler.ai.processing'],
     'UIBackgroundModes': ['processing', 'audio'],
     'NSSupportsLiveActivities': True,
+    'UIApplicationSceneManifest': {
+        'UIApplicationSupportsMultipleScenes': False,
+        'UISceneConfigurations': {
+            'UIWindowSceneSessionRoleApplication': [{
+                'UISceneConfigurationName': 'Dylix',
+                'UISceneClassName': 'UIWindowScene',
+                'UISceneDelegateClassName': 'DylixSceneDelegate',
+            }],
+        },
+    },
     'MinimumOSVersion': '15.0', 'UIDeviceFamily': [1, 2],
     'NSAppTransportSecurity': {'NSAllowsArbitraryLoads': True},
     'NSLocalNetworkUsageDescription': '在你开启局域网远程工作台或配置局域网 AI 服务时，允许同一 Wi-Fi 中经你配对的设备访问。',
@@ -256,7 +268,7 @@ share.mkdir(parents=True, exist_ok=True)
 share_info = {
  'CFBundleExecutable':'TweakForgeShare','CFBundleIdentifier':args.bundle_id + '.share',
  'CFBundleName':'TweakForgeShare','CFBundleDisplayName':'Dylix','CFBundlePackageType':'XPC!',
- 'CFBundleShortVersionString':'1.1.3','CFBundleVersion':info['CFBundleVersion'],
+ 'CFBundleShortVersionString':'1.1.4','CFBundleVersion':info['CFBundleVersion'],
  'MinimumOSVersion':'15.0','UIDeviceFamily':[1,2],
  'CFBundleSupportedPlatforms':info['CFBundleSupportedPlatforms'],
  'DTSDKName':info['DTSDKName'],'DTPlatformVersion':info['DTPlatformVersion'],
